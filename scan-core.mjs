@@ -1,16 +1,20 @@
 // scan-core.mjs —— 扫描 + 渲染共享核心（scan.mjs 命令行 与 server.mjs 本地服务共用）
-import { execFileSync } from "node:child_process";
-import { writeFileSync } from "node:fs";
+// v2：并行扫描 / 仓库分页 / CI 趋势 / API 配额 / 许可证链接增量复用 / schema 2
+import { execFileSync, execFile } from "node:child_process";
+import { promisify } from "node:util";
+import { writeFileSync, readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const HERE = dirname(fileURLToPath(import.meta.url));
+const execFileP = promisify(execFile);
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+/* ---------------- gh CLI 封装（同步 + 异步，均带 5xx/429/网络抖动重试） ---------------- */
 function sleepSync(ms) {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 }
 
-// gh CLI 调用（对 GitHub API 的 5xx / 429 / 网络抖动自动重试）
 export function gh(args, retries = 3) {
   for (let attempt = 0; ; attempt++) {
     try {
@@ -27,6 +31,39 @@ export function gh(args, retries = 3) {
       throw e;
     }
   }
+}
+
+export async function ghAsync(args, retries = 3) {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const { stdout } = await execFileP("gh", args, { maxBuffer: 64 * 1024 * 1024 });
+      return stdout.trim();
+    } catch (e) {
+      const msg = String((e && e.message) || e);
+      const transient = /HTTP 5\d\d|HTTP 429|ETIMEDOUT|ECONNRESET|ECONNREFUSED|socket hang up/i.test(msg);
+      if (attempt < retries && transient) {
+        const waitMs = 2000 * (attempt + 1);
+        console.log("  ↻ GitHub API 暂时不可用，" + Math.round(waitMs / 1000) + " 秒后重试（第 " + (attempt + 1) + "/" + retries + " 次）…");
+        await sleep(waitMs);
+        continue;
+      }
+      throw e;
+    }
+  }
+}
+
+/* 简易并发池：items 上按 limit 并发跑 fn，保持结果顺序 */
+async function pool(items, limit, fn) {
+  const results = new Array(items.length);
+  let next = 0;
+  async function worker() {
+    while (next < items.length) {
+      const idx = next++;
+      results[idx] = await fn(items[idx], idx);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return results;
 }
 
 /* ---------------- 通用工具 ---------------- */
@@ -56,7 +93,7 @@ export function fullTime(iso) {
   return iso ? new Date(iso).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai", hour12: false }) : "—";
 }
 
-function ciStateOf(run) {
+export function ciStateOf(run) {
   if (!run) return { label: "无 CI 记录", cls: "none" };
   if (run.status !== "completed") return { label: "运行中", cls: "running" };
   switch (run.conclusion) {
@@ -72,13 +109,14 @@ function ciStateOf(run) {
   }
 }
 
-const QUERY = /* GraphQL */ `
-  query($owner: String!) {
+const QUERY_PAGE = /* GraphQL */ `
+  query($owner: String!, $cursor: String) {
     user(login: $owner) {
       login
       avatarUrl(size: 96)
-      repositories(first: 60, ownerAffiliations: OWNER, orderBy: { field: PUSHED_AT, direction: DESC }) {
+      repositories(first: 100, after: $cursor, ownerAffiliations: OWNER, orderBy: { field: PUSHED_AT, direction: DESC }) {
         totalCount
+        pageInfo { hasNextPage endCursor }
         nodes {
           name
           description
@@ -103,33 +141,63 @@ const QUERY = /* GraphQL */ `
     }
   }`;
 
-/* ---------------- 数据采集 ---------------- */
+/* ---------------- 数据采集（分页 + 并行 + 增量） ---------------- */
 export async function collectData(ownerArg) {
   const owner = ownerArg || gh(["api", "user", "--jq", ".login"]);
   console.log("▸ 账号：" + owner);
-  console.log("▸ 正在通过 gh api 拉取仓库数据（GraphQL 单请求）…");
 
-  const res = JSON.parse(gh(["api", "graphql", "-f", "query=" + QUERY, "-F", "owner=" + owner]));
-  if (res.errors?.length) throw new Error("GraphQL 错误：" + res.errors.map((e) => e.message).join("; "));
-  const user = res.data?.user;
-  if (!user) throw new Error("找不到账号 " + owner + "（本工具面向个人账号，组织账号需改用 organization 查询）");
-  const repos = user.repositories.nodes ?? [];
-
-  console.log("▸ 拉到 " + repos.length + " 个仓库，正在补齐许可证文件链接…");
-  const licenseUrls = new Map();
-  for (const r of repos) {
-    if (!r.licenseInfo) continue;
-    try {
-      licenseUrls.set(r.name, gh(["api", "repos/" + owner + "/" + r.name + "/license", "--jq", ".html_url"]));
-    } catch { /* 根目录没有标准 LICENSE 文件，忽略 */ }
+  // 1. GraphQL 分页拉仓库（每页 100，最多 5 页 = 500 个）
+  let login = null;
+  let avatarUrl = "";
+  let totalCount = 0;
+  const repos = [];
+  let cursor = null;
+  let pagesFetched = 0;
+  for (let page = 0; page < 5; page++) {
+    const ghArgs = ["api", "graphql", "-f", "query=" + QUERY_PAGE, "-F", "owner=" + owner];
+    if (cursor) ghArgs.push("-F", "cursor=" + cursor);
+    const res = JSON.parse(gh(ghArgs));
+    if (res.errors?.length) throw new Error("GraphQL 错误：" + res.errors.map((e) => e.message).join("; "));
+    const user = res.data?.user;
+    if (!user) throw new Error("找不到账号 " + owner + "（本工具面向个人账号，组织账号需改用 organization 查询）");
+    login = user.login;
+    avatarUrl = user.avatarUrl;
+    totalCount = user.repositories.totalCount;
+    repos.push(...(user.repositories.nodes ?? []));
+    pagesFetched++;
+    if (!user.repositories.pageInfo.hasNextPage) { cursor = null; break; }
+    cursor = user.repositories.pageInfo.endCursor;
   }
+  const truncated = !!cursor;
+  console.log("▸ 拉到 " + repos.length + " 个仓库（账号名下 " + totalCount + " 个，GraphQL " + pagesFetched + " 页" + (truncated ? "，超过 500 个已截断" : "") + "）");
 
-  console.log("▸ 正在拉取每个仓库最近一次 CI 运行…");
-  const rows = repos.map((r) => {
-    let run = null;
+  // 2. 上一次快照（用于许可证链接增量复用：pushedAt 未变 → LICENSE 文件未变）
+  let prev = null;
+  try { prev = JSON.parse(readFileSync(join(HERE, "scan-data.json"), "utf8")); } catch { /* 无快照则全量 */ }
+  const prevByName = new Map(((prev && prev.rows) || []).map((r) => [r.name, r]));
+
+  // 3. 并行补齐每仓数据：许可证链接 + 最近 5 次 CI 运行（趋势）
+  console.log("▸ 并行拉取许可证与 CI 运行记录（并发 8）…");
+  const rows = await pool(repos, 8, async (r) => {
+    let licenseUrl = null;
+    if (r.licenseInfo) {
+      const p = prevByName.get(r.name);
+      if (p && p.pushedAt === r.pushedAt && p.licenseUrl) {
+        licenseUrl = p.licenseUrl; // 增量复用
+      } else {
+        try {
+          licenseUrl = await ghAsync(["api", "repos/" + owner + "/" + r.name + "/license", "--jq", ".html_url"]);
+        } catch { /* 根目录没有标准 LICENSE 文件，忽略 */ }
+      }
+    }
+
+    let runs = [];
     try {
-      run = JSON.parse(gh(["api", "repos/" + owner + "/" + r.name + "/actions/runs?per_page=1"])).workflow_runs?.[0] ?? null;
+      runs = JSON.parse(await ghAsync(["api", "repos/" + owner + "/" + r.name + "/actions/runs?per_page=5"])).workflow_runs ?? [];
     } catch { /* Actions API 不可用时按无记录处理 */ }
+    const run = runs[0] ?? null;
+    const trend = runs.slice().reverse().map((x) => ({ s: x.status, c: x.conclusion, at: x.created_at })); // 旧 → 新
+
     const state = ciStateOf(run);
     const lic = r.licenseInfo;
     return {
@@ -148,7 +216,7 @@ export async function collectData(ownerArg) {
       branches: r.refs?.totalCount ?? 0,
       defaultBranch: r.defaultBranchRef?.name ?? "—",
       license: lic ? (lic.spdxId && lic.spdxId !== "NOASSERTION" ? lic.spdxId : lic.name) : null,
-      licenseUrl: licenseUrls.get(r.name) ?? null,
+      licenseUrl,
       releases: r.releases?.totalCount ?? 0,
       latestRelease: r.latestRelease
         ? { tag: r.latestRelease.tagName, name: r.latestRelease.name, publishedAt: r.latestRelease.publishedAt, url: r.latestRelease.url }
@@ -160,15 +228,22 @@ export async function collectData(ownerArg) {
         ref: run?.head_branch ?? null,
         ranAt: run?.created_at ?? null,
         url: run?.html_url ?? null,
+        trend,
       },
       language: r.primaryLanguage?.name ?? null,
       langColor: LANG_COLORS[r.primaryLanguage?.name ?? ""] ?? "#8b949e",
     };
   });
 
+  // 4. API 配额（rate_limit 接口本身不消耗配额）
+  let rate = null;
+  try {
+    rate = JSON.parse(gh(["api", "rate_limit", "--jq", ".resources.core"]));
+  } catch { /* 拿不到就隐藏展示 */ }
+
   const totals = {
     repos: rows.length,
-    totalRepos: user.repositories.totalCount,
+    totalRepos: totalCount,
     stars: rows.reduce((a, r) => a + r.stars, 0),
     forks: rows.reduce((a, r) => a + r.forks, 0),
     openIssues: rows.reduce((a, r) => a + r.openIssues, 0),
@@ -178,7 +253,7 @@ export async function collectData(ownerArg) {
     ciOk: rows.filter((x) => x.ci.cls === "ok").length,
   };
 
-  return { owner: user.login, avatarUrl: user.avatarUrl, scannedAt: new Date().toISOString(), totals, rows };
+  return { schema: 2, owner: login, avatarUrl, scannedAt: new Date().toISOString(), truncated, rate, totals, rows };
 }
 
 /* ---------------- 产物输出 ---------------- */
@@ -193,11 +268,12 @@ export function printSummary(data) {
   for (const r of data.rows) {
     console.log("   " + r.name.padEnd(24) + " CI:" + r.ci.state.padEnd(6) + " 许可:" + (r.license ?? "未声明").padEnd(12) + " Release:" + (r.latestRelease ? r.latestRelease.tag : "—").padEnd(14) + " 分支:" + r.defaultBranch + "/" + r.branches + "  ★" + r.stars);
   }
+  if (data.rate) console.log("▸ GitHub API 余量：" + data.rate.remaining + "/" + data.rate.limit);
   console.log("▸ 面板：" + join(HERE, "dashboard.html"));
-  console.log("▸ 快照：" + join(HERE, "scan-data.json"));
+  console.log("▸ 快照：" + join(HERE, "scan-data.json") + "（schema " + (data.schema ?? 1) + "）");
 }
 
-/* ---------------- 面板渲染（内嵌数据 + 排序 + 主题 + 扫描按钮） ---------------- */
+/* ---------------- 面板渲染（内嵌数据 + 筛选搜索 + 排序 + 主题 + 扫描 + 趋势 + 配额） ---------------- */
 export function renderDashboard(data) {
   const jsonStr = JSON.stringify(data).replace(/</g, "\\u003c");
   return `<!doctype html>
@@ -255,11 +331,22 @@ export function renderDashboard(data) {
   .hint.okc { color: var(--ok); }
   .hint.err { color: var(--fail); }
 
-  .metrics { display: flex; gap: 12px; flex-wrap: wrap; margin: 18px 0 26px; }
+  .metrics { display: flex; gap: 12px; flex-wrap: wrap; margin: 18px 0 20px; }
   .metric { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 12px 20px; min-width: 118px; }
   .metric .v { font-size: 22px; font-weight: 600; color: var(--text); }
   .metric .vsub { font-size: 13px; font-weight: 400; color: var(--muted); }
   .metric .k { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+  .toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin: 0 0 14px; }
+  .toolbar input[type="search"], .toolbar select {
+    background: var(--panel); border: 1px solid var(--border); color: var(--text2);
+    border-radius: 6px; padding: 6px 10px; font-size: 13px; font-family: inherit;
+  }
+  .toolbar input[type="search"] { min-width: 230px; }
+  .toolbar input:focus, .toolbar select:focus { outline: none; border-color: var(--accent); }
+  .chk { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); cursor: pointer; }
+  .chk input { accent-color: var(--accent); }
+  .toolbar .spacer { flex: 1; }
 
   .scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); }
   table { width: 100%; border-collapse: collapse; min-width: 1180px; }
@@ -300,14 +387,21 @@ export function renderDashboard(data) {
   .badge.fail .dot { background: var(--fail); }
   .badge.running { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 45%, transparent); background: color-mix(in srgb, var(--warn) 8%, transparent); }
   .badge.running .dot { background: var(--warn); }
+  .trend { display: inline-flex; gap: 3px; margin-top: 5px; }
+  .tdot { width: 7px; height: 7px; border-radius: 50%; background: var(--border); display: inline-block; }
+  .tdot.ok { background: var(--ok); }
+  .tdot.fail { background: var(--fail); }
+  .tdot.run { background: var(--warn); }
   .pair { display: flex; flex-direction: column; gap: 3px; }
   .pair a { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); }
   .pair a:hover { color: var(--accent); text-decoration: none; }
   .lang { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
   .ldot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
   td.num { white-space: nowrap; }
+  .notice { font-size: 12.5px; color: var(--warn); margin: 0 0 14px; }
   footer { margin-top: 18px; font-size: 12px; color: var(--muted); line-height: 1.8; }
   footer code { font-family: Consolas, "Cascadia Mono", monospace; background: var(--panel); border: 1px solid var(--border); border-radius: 4px; padding: 1px 6px; }
+  #footExtra strong { color: var(--text2); font-weight: 600; }
 </style>
 </head>
 <body>
@@ -326,6 +420,32 @@ export function renderDashboard(data) {
   <div class="hint" id="scanHint"></div>
 
   <div class="metrics" id="metrics"></div>
+
+  <div class="toolbar">
+    <input id="q" type="search" placeholder="搜索仓库名 / 描述…">
+    <select id="fLang" title="按语言筛选"><option value="">全部语言</option></select>
+    <select id="fStatus" title="按状态筛选">
+      <option value="">全部状态</option>
+      <option value="ok">CI 通过</option>
+      <option value="fail">CI 失败</option>
+      <option value="running">CI 运行中</option>
+      <option value="none">无 CI 记录</option>
+      <option value="hasIssue">有开放 Issue</option>
+      <option value="noLic">未声明许可证</option>
+    </select>
+    <label class="chk"><input type="checkbox" id="fNoFork">隐藏 fork</label>
+    <span class="spacer"></span>
+    <label class="chk">自动刷新
+      <select id="auto" title="定时自动重新扫描（消耗 GitHub API 配额）">
+        <option value="0">关闭</option>
+        <option value="10">每 10 分钟</option>
+        <option value="30">每 30 分钟</option>
+        <option value="60">每 60 分钟</option>
+      </select>
+    </label>
+  </div>
+
+  <div class="notice" id="truncNotice" style="display:none"></div>
 
   <div class="scroll">
     <table>
@@ -348,8 +468,9 @@ export function renderDashboard(data) {
   </div>
 
   <footer>
-    数据为扫描时快照：页面内点「重新扫描」可原地更新（需启动本地服务 <code>node server.mjs</code>），或命令行 <code>node scan.mjs</code> 重新生成 ·
-    排序：点击表头，再点一次切换升降序 · 主题：右上角切换，选择会被记住 ·
+    <div id="footExtra"></div>
+    数据为扫描时快照：页面内点「重新扫描」可原地更新（需启动本地服务 <code>node server.mjs</code>），或命令行 <code>node scan.mjs</code>（<code>--render-only</code> 仅重渲染）·
+    排序：点击表头，再点一次切换升降序（选择会记住）· 主题：右上角切换（默认浅色）·
     CI 取最近一次 Actions 运行（任意分支/标签）· Issue 数不含 PR（PR 单列）· 分支数为全部本地分支（不含 tag）·
     表格内每个单元格都链接到对应的 GitHub 页面。
   </footer>
@@ -368,8 +489,11 @@ window.__SCAN_DATA__ = ${jsonStr};
   var SVG_MOON = '<svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="M9.598 1.591a.749.749 0 0 1 .785-.175 7.001 7.001 0 1 1-8.967 8.967.75.75 0 0 1 .961-.96 5.5 5.5 0 0 0 7.046-7.046.75.75 0 0 1 .175-.786Zm1.616 1.945a7 7 0 0 1-7.678 7.678 5.499 5.499 0 1 0 7.678-7.678Z"/></svg>';
   var SVG_SYNC = '<svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="M1.705 8.005a.75.75 0 0 1 .834.656 5.5 5.5 0 0 0 9.592 2.97l-1.204-1.204a.25.25 0 0 1 .177-.427h3.646a.25.25 0 0 1 .25.25v3.646a.25.25 0 0 1-.427.177l-1.38-1.38A7.002 7.002 0 0 1 1.05 8.84a.75.75 0 0 1 .656-.834ZM8 2.5a5.487 5.487 0 0 0-4.131 1.869l1.204 1.204A.25.25 0 0 1 4.896 6H1.25A.25.25 0 0 1 1 5.75V2.104a.25.25 0 0 1 .427-.177l1.38 1.38A7.002 7.002 0 0 1 14.95 7.16a.75.75 0 0 1-1.49.178A5.5 5.5 0 0 0 8 2.5Z"/></svg>';
 
-  var state = { data: null, sortKey: 'pushedAt', sortDir: 'desc', scanning: false };
   var THEME_KEY = 'grs-theme';
+  var AUTO_KEY = 'grs-auto';
+  var SORT_KEY = 'grs-sort';
+  var state = { data: null, sortKey: 'pushedAt', sortDir: 'desc', scanning: false, q: '', fLang: '', fStatus: '', noFork: false };
+  var autoTimer = null;
 
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -412,6 +536,54 @@ window.__SCAN_DATA__ = ${jsonStr};
   };
   var ASC_DEFAULT = { name: true, license: true, language: true };
 
+  function saveSort() {
+    try { localStorage.setItem(SORT_KEY, JSON.stringify({ k: state.sortKey, d: state.sortDir })); } catch (e) {}
+  }
+  function loadSort() {
+    try {
+      var ss = JSON.parse(localStorage.getItem(SORT_KEY) || 'null');
+      if (ss && SORT_VAL[ss.k]) {
+        state.sortKey = ss.k;
+        state.sortDir = ss.d === 'asc' ? 'asc' : 'desc';
+      }
+    } catch (e) {}
+  }
+
+  /* ---------- 筛选 ---------- */
+  function matchFilters(r) {
+    if (state.noFork && r.isFork) return false;
+    if (state.fStatus === 'ok' && r.ci.cls !== 'ok') return false;
+    if (state.fStatus === 'fail' && r.ci.cls !== 'fail') return false;
+    if (state.fStatus === 'running' && r.ci.cls !== 'running') return false;
+    if (state.fStatus === 'none' && r.ci.cls !== 'none') return false;
+    if (state.fStatus === 'hasIssue' && r.openIssues <= 0) return false;
+    if (state.fStatus === 'noLic' && r.license) return false;
+    if (state.fLang && r.language !== state.fLang) return false;
+    if (state.q) {
+      var qq = state.q.toLowerCase();
+      var hay = (r.name + ' ' + (r.description || '')).toLowerCase();
+      if (hay.indexOf(qq) === -1) return false;
+    }
+    return true;
+  }
+
+  function rebuildLangOptions() {
+    var sel = document.getElementById('fLang');
+    var langs = {};
+    state.data.rows.forEach(function (r) { if (r.language) langs[r.language] = true; });
+    var names = Object.keys(langs).sort(function (a, b) { return a.localeCompare(b, 'zh-CN'); });
+    var cur = sel.value || state.fLang;
+    var html = '<option value="">全部语言</option>';
+    for (var i = 0; i < names.length; i++) html += '<option value="' + esc(names[i]) + '">' + esc(names[i]) + '</option>';
+    sel.innerHTML = html;
+    if (cur && names.indexOf(cur) >= 0) { sel.value = cur; state.fLang = cur; }
+    else { state.fLang = ''; }
+  }
+
+  function visibleRows() {
+    return currentRows().filter(matchFilters);
+  }
+
   function currentRows() {
     var rows = state.data.rows.slice();
     var val = SORT_VAL[state.sortKey] || SORT_VAL.pushedAt;
@@ -443,12 +615,27 @@ window.__SCAN_DATA__ = ${jsonStr};
     return '<div class="metric"><div class="v">' + v + '</div><div class="k">' + k + '</div></div>';
   }
 
+  function trendDots(r) {
+    var t = (r.ci && r.ci.trend) || [];
+    if (!t.length) return '';
+    var out = '<span class="trend">';
+    for (var i = 0; i < t.length; i++) {
+      var x = t[i];
+      var cls = '';
+      if (x.c === 'success') cls = 'ok';
+      else if (x.c === 'failure' || x.c === 'timed_out' || x.c === 'startup_failure' || x.c === 'action_required') cls = 'fail';
+      else if (x.s && x.s !== 'completed') cls = 'run';
+      out += '<span class="tdot ' + cls + '" title="' + esc(fullTime(x.at)) + ' · ' + esc(x.c == null ? (x.s || '未知') : x.c) + '"></span>';
+    }
+    return out + '</span>';
+  }
+
   function ciCell(r) {
     var ci = r.ci;
-    if (!ci.url) return '<span class="badge ' + ci.cls + '"><span class="dot"></span>' + esc(ci.state) + '</span>';
+    if (!ci.url) return '<span class="badge ' + ci.cls + '"><span class="dot"></span>' + esc(ci.state) + '</span>' + trendDots(r);
     var tip = '最近一次运行：' + (ci.workflow || '未知工作流') + (ci.ref ? '（' + ci.ref + '）' : '') + (ci.ranAt ? ' · ' + fullTime(ci.ranAt) : '');
     var sub = [ci.workflow, ci.ref ? '@' + ci.ref : '', ci.ranAt ? relTime(ci.ranAt) : ''].filter(Boolean).join(' · ');
-    return '<a class="badge ' + ci.cls + '" href="' + esc(ci.url) + '" target="_blank" rel="noopener" title="' + esc(tip) + '"><span class="dot"></span>' + esc(ci.state) + '</a><div class="sub">' + esc(sub) + '</div>';
+    return '<a class="badge ' + ci.cls + '" href="' + esc(ci.url) + '" target="_blank" rel="noopener" title="' + esc(tip) + '"><span class="dot"></span>' + esc(ci.state) + '</a><div class="sub">' + esc(sub) + '</div>' + trendDots(r);
   }
 
   function rowHtml(r) {
@@ -503,10 +690,20 @@ window.__SCAN_DATA__ = ${jsonStr};
       metric(t.openIssues + '<span class="vsub"> +' + t.openPRs + ' PR</span>', '开放 Issue') +
       metric(t.releases, '发布合计') +
       metric(t.ciOk + '<span class="vsub">/' + t.ciDone + '</span>', 'CI 通过 / 有记录');
-    var rows = currentRows();
+
+    rebuildLangOptions();
+
+    var rows = visibleRows();
     document.getElementById('tbody').innerHTML = rows.length
       ? rows.map(rowHtml).join('')
-      : '<tr><td class="empty" colspan="10">没有数据</td></tr>';
+      : '<tr><td class="empty" colspan="10">没有匹配的仓库 —— 试试清空搜索或放宽筛选条件</td></tr>';
+
+    var extra = [];
+    if (d.rate && typeof d.rate.remaining === 'number') {
+      extra.push('GitHub API 余量 <strong>' + d.rate.remaining + '/' + d.rate.limit + '</strong>，' + esc(fullTime(new Date(d.rate.reset * 1000).toISOString())) + ' 重置');
+    }
+    if (d.truncated) extra.push('仓库超过 500 个，仅显示最近推送的前 500 个');
+    document.getElementById('footExtra').innerHTML = extra.length ? extra.join(' · ') : '';
   }
 
   /* ---------- 扫描更新 ---------- */
@@ -522,7 +719,7 @@ window.__SCAN_DATA__ = ${jsonStr};
     var btn = document.getElementById('scanBtn');
     btn.classList.add('scanning');
     btn.querySelector('.lbl').textContent = '扫描中…';
-    setHint('正在通过 gh api 拉取数据（GraphQL + REST，约 20–40 秒）…');
+    setHint('正在通过 gh api 并行拉取数据（GraphQL 分页 + REST，约 5–15 秒）…');
     fetch('/api/scan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
       .then(function (r) {
         return r.json().catch(function () { return { ok: false, error: 'HTTP ' + r.status }; });
@@ -538,6 +735,8 @@ window.__SCAN_DATA__ = ${jsonStr};
         var m = String((e && e.message) || e);
         if (/failed to fetch|networkerror|load failed|fetch failed/i.test(m)) {
           m = '未检测到本地服务：请在项目文件夹运行 node server.mjs 启动后重试（或用 node scan.mjs 命令行刷新静态快照）';
+        } else if (location.protocol.indexOf('http') === 0 && !/^(127\\.0\\.0\\.1|localhost)$/.test(location.hostname)) {
+          m = '静态托管页面无法扫描（没有本地服务）：请在本地运行 node server.mjs 后使用，或直接浏览内嵌快照';
         }
         setHint('扫描失败：' + m, 'err');
       })
@@ -546,6 +745,17 @@ window.__SCAN_DATA__ = ${jsonStr};
         btn.classList.remove('scanning');
         btn.querySelector('.lbl').textContent = '重新扫描';
       });
+  }
+
+  /* ---------- 自动刷新 ---------- */
+  function applyAuto(silent) {
+    var mins = parseInt(document.getElementById('auto').value, 10) || 0;
+    try { localStorage.setItem(AUTO_KEY, String(mins)); } catch (e) {}
+    if (autoTimer) { clearInterval(autoTimer); autoTimer = null; }
+    if (mins > 0) {
+      autoTimer = setInterval(function () { if (!state.scanning) doScan(); }, mins * 60000);
+      if (!silent) setHint('自动刷新已开启：每 ' + mins + ' 分钟扫描一次（每次消耗约 ' + '30–40 个 GitHub API 调用）', 'okc');
+    }
   }
 
   /* ---------- 启动 ---------- */
@@ -560,6 +770,22 @@ window.__SCAN_DATA__ = ${jsonStr};
       var cur = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
       applyTheme(cur === 'dark' ? 'light' : 'dark');
     });
+
+    var qEl = document.getElementById('q');
+    qEl.addEventListener('input', function () { state.q = qEl.value.trim(); render(); });
+    var fl = document.getElementById('fLang');
+    fl.addEventListener('change', function () { state.fLang = fl.value; render(); });
+    var fs = document.getElementById('fStatus');
+    fs.addEventListener('change', function () { state.fStatus = fs.value; render(); });
+    var nf = document.getElementById('fNoFork');
+    nf.addEventListener('change', function () { state.noFork = nf.checked; render(); });
+    var au = document.getElementById('auto');
+    au.addEventListener('change', function () { applyAuto(false); });
+    var savedAuto = '0';
+    try { savedAuto = localStorage.getItem(AUTO_KEY) || '0'; } catch (e) {}
+    if (['10', '30', '60'].indexOf(savedAuto) >= 0) au.value = savedAuto;
+    applyAuto(true);
+
     var ths = document.querySelectorAll('th.sortable');
     for (var i = 0; i < ths.length; i++) {
       (function (th) {
@@ -571,12 +797,14 @@ window.__SCAN_DATA__ = ${jsonStr};
             state.sortKey = k;
             state.sortDir = ASC_DEFAULT[k] ? 'asc' : 'desc';
           }
+          saveSort();
           updateArr();
           render();
         });
       })(ths[i]);
     }
 
+    loadSort();
     updateArr();
     var embedded = window.__SCAN_DATA__ || null;
     if (embedded) { state.data = embedded; render(); }
@@ -587,7 +815,7 @@ window.__SCAN_DATA__ = ${jsonStr};
       .then(function (j) {
         if (j && j.ok && j.data && j.data.rows) { state.data = j.data; render(); }
       })
-      .catch(function () { /* file:// 直开时无服务，用内嵌快照 */ });
+      .catch(function () { /* file:// 或静态托管时无服务，用内嵌快照 */ });
   }
 
   boot();

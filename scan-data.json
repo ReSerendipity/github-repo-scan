@@ -1,10 +1,18 @@
 {
+  "schema": 2,
   "owner": "ReSerendipity",
   "avatarUrl": "https://avatars.githubusercontent.com/u/259081123?s=96&u=8f95238d55cf3ad3e9d3fac10c5d2d6a937b2d4a&v=4",
-  "scannedAt": "2026-09-21T12:38:49.270Z",
+  "scannedAt": "2026-09-21T13:05:01.950Z",
+  "truncated": false,
+  "rate": {
+    "limit": 5000,
+    "remaining": 5000,
+    "reset": 1789999516,
+    "used": 0
+  },
   "totals": {
-    "repos": 17,
-    "totalRepos": 17,
+    "repos": 18,
+    "totalRepos": 18,
     "stars": 24,
     "forks": 4,
     "openIssues": 5,
@@ -14,6 +22,37 @@
     "ciOk": 9
   },
   "rows": [
+    {
+      "name": "github-repo-scan",
+      "url": "https://github.com/ReSerendipity/github-repo-scan",
+      "description": "GitHub 账号仓库总览面板：CI / 许可证 / Release / Issue / 分支 / Star·Fork 一张表看完，双击即用 | Local dashboard scanning all your GitHub repos: CI, license, releases, issues, branches, stars - clickable links",
+      "visibility": "PUBLIC",
+      "isArchived": false,
+      "isFork": false,
+      "createdAt": "2026-09-21T12:56:10Z",
+      "pushedAt": "2026-09-21T12:56:15Z",
+      "stars": 0,
+      "forks": 0,
+      "openIssues": 0,
+      "openPRs": 0,
+      "branches": 1,
+      "defaultBranch": "main",
+      "license": null,
+      "licenseUrl": null,
+      "releases": 0,
+      "latestRelease": null,
+      "ci": {
+        "state": "无 CI 记录",
+        "cls": "none",
+        "workflow": null,
+        "ref": null,
+        "ranAt": null,
+        "url": null,
+        "trend": []
+      },
+      "language": "HTML",
+      "langColor": "#e34c26"
+    },
     {
       "name": "TTS_MultiModel",
       "url": "https://github.com/ReSerendipity/TTS_MultiModel",
@@ -44,7 +83,34 @@
         "workflow": "CI",
         "ref": "ci/engine-import-and-indextts20-smoke",
         "ranAt": "2026-09-21T12:28:03Z",
-        "url": "https://github.com/ReSerendipity/TTS_MultiModel/actions/runs/35599697733"
+        "url": "https://github.com/ReSerendipity/TTS_MultiModel/actions/runs/35599697733",
+        "trend": [
+          {
+            "s": "completed",
+            "c": "failure",
+            "at": "2026-09-21T12:28:02Z"
+          },
+          {
+            "s": "completed",
+            "c": "success",
+            "at": "2026-09-21T12:28:02Z"
+          },
+          {
+            "s": "completed",
+            "c": "success",
+            "at": "2026-09-21T12:28:02Z"
+          },
+          {
+            "s": "completed",
+            "c": "success",
+            "at": "2026-09-21T12:28:02Z"
+          },
+          {
+            "s": "completed",
+            "c": "success",
+            "at": "2026-09-21T12:28:03Z"
+          }
+        ]
       },
       "language": "Python",
       "langColor": "#3572A5"
@@ -74,7 +140,24 @@
         "workflow": "pages build and deployment",
         "ref": "main",
         "ranAt": "2026-09-21T12:11:52Z",
-        "url": "https://github.com/ReSerendipity/offer-landing-kit/actions/runs/35598139299"
+        "url": "https://github.com/ReSerendipity/offer-landing-kit/actions/runs/35598139299",
+        "trend": [
+          {
+            "s": "completed",
+            "c": "success",
+            "at": "2026-09-21T11:26:36Z"
+          },
+          {
+            "s": "completed",
+            "c": "success",
+            "at": "2026-09-21T11:53:31Z"
+          },
+          {
+            "s": "completed",
+            "c": "success",
+            "at": "2026-09-21T12:11:52Z"
+          }
+        ]
       },
       "language": "HTML",
       "langColor": "#e34c26"
@@ -104,7 +187,8 @@
         "workflow": null,
         "ref": null,
         "ranAt": null,
-        "url": null
+        "url": null,
+        "trend": []
       },
       "language": "C",
       "langColor": "#555555"
@@ -139,7 +223,34 @@
         "workflow": "Dependency Audit",
         "ref": "main",
         "ranAt": "2026-09-21T11:21:21Z",
-        "url": "https://github.com/ReSerendipity/SeedVR2-lite/actions/runs/35593611751"
+        "url": "https://github.com/ReSerendipity/SeedVR2-lite/actions/runs/35593611751",
+        "trend": [
+          {
+            "s": "completed",
+            "c": "success",
+            "at": "2026-09-21T07:27:56Z"
+          },
+          {
+            "s": "completed",
+            "c": "success",
+            "at": "2026-09-21T08:03:51Z"
+          },
+          {
+            "s": "completed",
+            "c": "success",
+            "at": "2026-09-21T08:16:57Z"
+          },
+          {
+            "s": "completed",
+            "c": "success",
+            "at": "2026-09-21T09:34:59Z"
+          },
+          {
+            "s": "completed",
+            "c": "success",
+            "at": "2026-09-21T11:21:21Z"
+          }
+        ]
       },
       "language": "Python",
       "langColor": "#3572A5"
@@ -169,7 +280,34 @@
         "workflow": "Stale 自动清理",
         "ref": "main",
         "ranAt": "2026-09-21T08:23:19Z",
-        "url": "https://github.com/ReSerendipity/DraftPeek/actions/runs/35577631083"
+        "url": "https://github.com/ReSerendipity/DraftPeek/actions/runs/35577631083",
+        "trend": [
+          {
+            "s": "completed",
+            "c": "success",
+            "at": "2026-09-21T06:51:25Z"
+          },
+          {
+            "s": "completed",
+            "c": "failure",
+            "at": "2026-09-21T07:28:09Z"
+          },
+          {
+            "s": "completed",
+            "c": "success",
+            "at": "2026-09-21T07:49:53Z"
+          },
+          {
+            "s": "completed",
+            "c": "success",
+            "at": "2026-09-21T08:09:04Z"
+          },
+          {
+            "s": "completed",
+            "c": "success",
+            "at": "2026-09-21T08:23:19Z"
+          }
+        ]
       },
       "language": "Kotlin",
       "langColor": "#A97BFF"
@@ -204,7 +342,34 @@
         "workflow": "Deps Ecosystem Watch",
         "ref": "main",
         "ranAt": "2026-09-21T10:04:09Z",
-        "url": "https://github.com/ReSerendipity/SpiritPal/actions/runs/35586724025"
+        "url": "https://github.com/ReSerendipity/SpiritPal/actions/runs/35586724025",
+        "trend": [
+          {
+            "s": "completed",
+            "c": "success",
+            "at": "2026-09-21T02:13:23Z"
+          },
+          {
+            "s": "completed",
+            "c": "success",
+            "at": "2026-09-21T07:25:59Z"
+          },
+          {
+            "s": "completed",
+            "c": "failure",
+            "at": "2026-09-21T08:38:21Z"
+          },
+          {
+            "s": "completed",
+            "c": "success",
+            "at": "2026-09-21T08:45:22Z"
+          },
+          {
+            "s": "completed",
+            "c": "success",
+            "at": "2026-09-21T10:04:09Z"
+          }
+        ]
       },
       "language": "TypeScript",
       "langColor": "#3178c6"
@@ -239,7 +404,34 @@
         "workflow": "Benchmarks",
         "ref": "main",
         "ranAt": "2026-09-21T12:14:34Z",
-        "url": "https://github.com/ReSerendipity/MiniMax-H3-lite/actions/runs/35598402835"
+        "url": "https://github.com/ReSerendipity/MiniMax-H3-lite/actions/runs/35598402835",
+        "trend": [
+          {
+            "s": "completed",
+            "c": "success",
+            "at": "2026-09-21T08:25:35Z"
+          },
+          {
+            "s": "completed",
+            "c": "success",
+            "at": "2026-09-21T08:29:51Z"
+          },
+          {
+            "s": "completed",
+            "c": "success",
+            "at": "2026-09-21T08:42:57Z"
+          },
+          {
+            "s": "completed",
+            "c": "success",
+            "at": "2026-09-21T10:21:15Z"
+          },
+          {
+            "s": "completed",
+            "c": "failure",
+            "at": "2026-09-21T12:14:34Z"
+          }
+        ]
       },
       "language": "Python",
       "langColor": "#3572A5"
@@ -274,7 +466,34 @@
         "workflow": "Security",
         "ref": "main",
         "ranAt": "2026-09-21T12:26:27Z",
-        "url": "https://github.com/ReSerendipity/Image_MultiModel/actions/runs/35599549421"
+        "url": "https://github.com/ReSerendipity/Image_MultiModel/actions/runs/35599549421",
+        "trend": [
+          {
+            "s": "completed",
+            "c": "success",
+            "at": "2026-09-21T07:38:02Z"
+          },
+          {
+            "s": "completed",
+            "c": "success",
+            "at": "2026-09-21T08:06:54Z"
+          },
+          {
+            "s": "completed",
+            "c": "success",
+            "at": "2026-09-21T08:35:59Z"
+          },
+          {
+            "s": "completed",
+            "c": "success",
+            "at": "2026-09-21T08:46:10Z"
+          },
+          {
+            "s": "completed",
+            "c": "failure",
+            "at": "2026-09-21T12:26:27Z"
+          }
+        ]
       },
       "language": "Python",
       "langColor": "#3572A5"
@@ -304,7 +523,8 @@
         "workflow": null,
         "ref": null,
         "ranAt": null,
-        "url": null
+        "url": null,
+        "trend": []
       },
       "language": null,
       "langColor": "#8b949e"
@@ -339,7 +559,19 @@
         "workflow": "Release",
         "ref": "v1.0.0",
         "ranAt": "2026-09-13T14:45:27Z",
-        "url": "https://github.com/ReSerendipity/Lineart_Painter/actions/runs/34763583043"
+        "url": "https://github.com/ReSerendipity/Lineart_Painter/actions/runs/34763583043",
+        "trend": [
+          {
+            "s": "completed",
+            "c": "failure",
+            "at": "2026-09-13T14:33:51Z"
+          },
+          {
+            "s": "completed",
+            "c": "success",
+            "at": "2026-09-13T14:45:27Z"
+          }
+        ]
       },
       "language": "Python",
       "langColor": "#3572A5"
@@ -374,7 +606,34 @@
         "workflow": "Release",
         "ref": "v1.0.0",
         "ranAt": "2026-09-13T15:41:57Z",
-        "url": "https://github.com/ReSerendipity/Card-Studio/actions/runs/34766378675"
+        "url": "https://github.com/ReSerendipity/Card-Studio/actions/runs/34766378675",
+        "trend": [
+          {
+            "s": "completed",
+            "c": "failure",
+            "at": "2026-09-13T14:50:28Z"
+          },
+          {
+            "s": "completed",
+            "c": "failure",
+            "at": "2026-09-13T14:50:39Z"
+          },
+          {
+            "s": "completed",
+            "c": "failure",
+            "at": "2026-09-13T14:54:08Z"
+          },
+          {
+            "s": "completed",
+            "c": "success",
+            "at": "2026-09-13T15:14:19Z"
+          },
+          {
+            "s": "completed",
+            "c": "success",
+            "at": "2026-09-13T15:41:57Z"
+          }
+        ]
       },
       "language": "JavaScript",
       "langColor": "#f1e05a"
@@ -404,7 +663,8 @@
         "workflow": null,
         "ref": null,
         "ranAt": null,
-        "url": null
+        "url": null,
+        "trend": []
       },
       "language": null,
       "langColor": "#8b949e"
@@ -434,7 +694,8 @@
         "workflow": null,
         "ref": null,
         "ranAt": null,
-        "url": null
+        "url": null,
+        "trend": []
       },
       "language": "Python",
       "langColor": "#3572A5"
@@ -464,7 +725,8 @@
         "workflow": null,
         "ref": null,
         "ranAt": null,
-        "url": null
+        "url": null,
+        "trend": []
       },
       "language": "Python",
       "langColor": "#3572A5"
@@ -499,7 +761,29 @@
         "workflow": "pages build and deployment",
         "ref": "main",
         "ranAt": "2026-09-08T13:28:05Z",
-        "url": "https://github.com/ReSerendipity/Unfading-Wall/actions/runs/34232137433"
+        "url": "https://github.com/ReSerendipity/Unfading-Wall/actions/runs/34232137433",
+        "trend": [
+          {
+            "s": "completed",
+            "c": "cancelled",
+            "at": "2026-09-08T13:21:47Z"
+          },
+          {
+            "s": "completed",
+            "c": "success",
+            "at": "2026-09-08T13:21:59Z"
+          },
+          {
+            "s": "completed",
+            "c": "success",
+            "at": "2026-09-08T13:23:10Z"
+          },
+          {
+            "s": "completed",
+            "c": "success",
+            "at": "2026-09-08T13:28:05Z"
+          }
+        ]
       },
       "language": "JavaScript",
       "langColor": "#f1e05a"
@@ -529,7 +813,14 @@
         "workflow": "Graph Update: pip in /. #1535286651",
         "ref": "master",
         "ranAt": "2026-08-21T11:57:56Z",
-        "url": "https://github.com/ReSerendipity/ComfyUI-BatchPromptLoader/actions/runs/32479622166"
+        "url": "https://github.com/ReSerendipity/ComfyUI-BatchPromptLoader/actions/runs/32479622166",
+        "trend": [
+          {
+            "s": "completed",
+            "c": "success",
+            "at": "2026-08-21T11:57:56Z"
+          }
+        ]
       },
       "language": "Python",
       "langColor": "#3572A5"
@@ -559,7 +850,8 @@
         "workflow": null,
         "ref": null,
         "ranAt": null,
-        "url": null
+        "url": null,
+        "trend": []
       },
       "language": "Python",
       "langColor": "#3572A5"

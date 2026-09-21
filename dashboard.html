@@ -53,11 +53,22 @@
   .hint.okc { color: var(--ok); }
   .hint.err { color: var(--fail); }
 
-  .metrics { display: flex; gap: 12px; flex-wrap: wrap; margin: 18px 0 26px; }
+  .metrics { display: flex; gap: 12px; flex-wrap: wrap; margin: 18px 0 20px; }
   .metric { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 12px 20px; min-width: 118px; }
   .metric .v { font-size: 22px; font-weight: 600; color: var(--text); }
   .metric .vsub { font-size: 13px; font-weight: 400; color: var(--muted); }
   .metric .k { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+  .toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin: 0 0 14px; }
+  .toolbar input[type="search"], .toolbar select {
+    background: var(--panel); border: 1px solid var(--border); color: var(--text2);
+    border-radius: 6px; padding: 6px 10px; font-size: 13px; font-family: inherit;
+  }
+  .toolbar input[type="search"] { min-width: 230px; }
+  .toolbar input:focus, .toolbar select:focus { outline: none; border-color: var(--accent); }
+  .chk { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); cursor: pointer; }
+  .chk input { accent-color: var(--accent); }
+  .toolbar .spacer { flex: 1; }
 
   .scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); }
   table { width: 100%; border-collapse: collapse; min-width: 1180px; }
@@ -98,14 +109,21 @@
   .badge.fail .dot { background: var(--fail); }
   .badge.running { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 45%, transparent); background: color-mix(in srgb, var(--warn) 8%, transparent); }
   .badge.running .dot { background: var(--warn); }
+  .trend { display: inline-flex; gap: 3px; margin-top: 5px; }
+  .tdot { width: 7px; height: 7px; border-radius: 50%; background: var(--border); display: inline-block; }
+  .tdot.ok { background: var(--ok); }
+  .tdot.fail { background: var(--fail); }
+  .tdot.run { background: var(--warn); }
   .pair { display: flex; flex-direction: column; gap: 3px; }
   .pair a { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); }
   .pair a:hover { color: var(--accent); text-decoration: none; }
   .lang { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
   .ldot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
   td.num { white-space: nowrap; }
+  .notice { font-size: 12.5px; color: var(--warn); margin: 0 0 14px; }
   footer { margin-top: 18px; font-size: 12px; color: var(--muted); line-height: 1.8; }
   footer code { font-family: Consolas, "Cascadia Mono", monospace; background: var(--panel); border: 1px solid var(--border); border-radius: 4px; padding: 1px 6px; }
+  #footExtra strong { color: var(--text2); font-weight: 600; }
 </style>
 </head>
 <body>
@@ -124,6 +142,32 @@
   <div class="hint" id="scanHint"></div>
 
   <div class="metrics" id="metrics"></div>
+
+  <div class="toolbar">
+    <input id="q" type="search" placeholder="搜索仓库名 / 描述…">
+    <select id="fLang" title="按语言筛选"><option value="">全部语言</option></select>
+    <select id="fStatus" title="按状态筛选">
+      <option value="">全部状态</option>
+      <option value="ok">CI 通过</option>
+      <option value="fail">CI 失败</option>
+      <option value="running">CI 运行中</option>
+      <option value="none">无 CI 记录</option>
+      <option value="hasIssue">有开放 Issue</option>
+      <option value="noLic">未声明许可证</option>
+    </select>
+    <label class="chk"><input type="checkbox" id="fNoFork">隐藏 fork</label>
+    <span class="spacer"></span>
+    <label class="chk">自动刷新
+      <select id="auto" title="定时自动重新扫描（消耗 GitHub API 配额）">
+        <option value="0">关闭</option>
+        <option value="10">每 10 分钟</option>
+        <option value="30">每 30 分钟</option>
+        <option value="60">每 60 分钟</option>
+      </select>
+    </label>
+  </div>
+
+  <div class="notice" id="truncNotice" style="display:none"></div>
 
   <div class="scroll">
     <table>
@@ -146,15 +190,16 @@
   </div>
 
   <footer>
-    数据为扫描时快照：页面内点「重新扫描」可原地更新（需启动本地服务 <code>node server.mjs</code>），或命令行 <code>node scan.mjs</code> 重新生成 ·
-    排序：点击表头，再点一次切换升降序 · 主题：右上角切换，选择会被记住 ·
+    <div id="footExtra"></div>
+    数据为扫描时快照：页面内点「重新扫描」可原地更新（需启动本地服务 <code>node server.mjs</code>），或命令行 <code>node scan.mjs</code>（<code>--render-only</code> 仅重渲染）·
+    排序：点击表头，再点一次切换升降序（选择会记住）· 主题：右上角切换（默认浅色）·
     CI 取最近一次 Actions 运行（任意分支/标签）· Issue 数不含 PR（PR 单列）· 分支数为全部本地分支（不含 tag）·
     表格内每个单元格都链接到对应的 GitHub 页面。
   </footer>
 </div>
 
 <script>
-window.__SCAN_DATA__ = {"owner":"ReSerendipity","avatarUrl":"https://avatars.githubusercontent.com/u/259081123?s=96&u=8f95238d55cf3ad3e9d3fac10c5d2d6a937b2d4a&v=4","scannedAt":"2026-09-21T12:38:49.270Z","totals":{"repos":17,"totalRepos":17,"stars":24,"forks":4,"openIssues":5,"openPRs":16,"releases":37,"ciDone":11,"ciOk":9},"rows":[{"name":"TTS_MultiModel","url":"https://github.com/ReSerendipity/TTS_MultiModel","description":"五引擎语音合成平台：VoxCPM2 / IndexTTS 2.5 / IndexTTS 2.0 / OpenVoice / Step-Audio-EditX，声音克隆、声音设计、多角色剧本配音、流式生成，中英日韩界面，Windows/Linux/Docker 一键部署 | Multi-engine TTS platform (5 engines) with voice cloning, voice design, multi-character dubbing & streaming, zh/en/ja/ko UI, one-click deploy","visibility":"PUBLIC","isArchived":false,"isFork":false,"createdAt":"2026-05-08T00:48:26Z","pushedAt":"2026-09-21T12:27:57Z","stars":10,"forks":2,"openIssues":3,"openPRs":8,"branches":20,"defaultBranch":"main","license":"Apache-2.0","licenseUrl":"https://github.com/ReSerendipity/TTS_MultiModel/blob/main/LICENSE","releases":4,"latestRelease":{"tag":"v2.2.1","name":"v2.2.1","publishedAt":"2026-08-22T04:43:17Z","url":"https://github.com/ReSerendipity/TTS_MultiModel/releases/tag/v2.2.1"},"ci":{"state":"通过","cls":"ok","workflow":"CI","ref":"ci/engine-import-and-indextts20-smoke","ranAt":"2026-09-21T12:28:03Z","url":"https://github.com/ReSerendipity/TTS_MultiModel/actions/runs/35599697733"},"language":"Python","langColor":"#3572A5"},{"name":"offer-landing-kit","url":"https://github.com/ReSerendipity/offer-landing-kit","description":"到岗前作战包 · Offer→入职 衔接工具：离职交接清单 / 社保断档测算 / 试用期100天台账。纯前端单文件，数据不出本机。","visibility":"PUBLIC","isArchived":false,"isFork":false,"createdAt":"2026-09-21T11:26:15Z","pushedAt":"2026-09-21T12:11:50Z","stars":0,"forks":0,"openIssues":0,"openPRs":0,"branches":1,"defaultBranch":"main","license":null,"licenseUrl":null,"releases":0,"latestRelease":null,"ci":{"state":"通过","cls":"ok","workflow":"pages build and deployment","ref":"main","ranAt":"2026-09-21T12:11:52Z","url":"https://github.com/ReSerendipity/offer-landing-kit/actions/runs/35598139299"},"language":"HTML","langColor":"#e34c26"},{"name":"health-info-card","url":"https://github.com/ReSerendipity/health-info-card","description":"安心牌 · 老人急救信息卡（FoloToy AI Passport 玩法）","visibility":"PUBLIC","isArchived":false,"isFork":false,"createdAt":"2026-09-21T07:48:21Z","pushedAt":"2026-09-21T07:48:28Z","stars":0,"forks":0,"openIssues":0,"openPRs":0,"branches":1,"defaultBranch":"health-info-official","license":"MIT","licenseUrl":"https://github.com/ReSerendipity/health-info-card/blob/health-info-official/LICENSE","releases":0,"latestRelease":null,"ci":{"state":"无 CI 记录","cls":"none","workflow":null,"ref":null,"ranAt":null,"url":null},"language":"C","langColor":"#555555"},{"name":"SeedVR2-lite","url":"https://github.com/ReSerendipity/SeedVR2-lite","description":"SeedVR2 视频/图像超分辨率修复工具箱：Tauri 桌面版（一键安装+增量更新）与网页版/便携包，支持 3B/7B/7B-Sharp、FP8、GPU Block Swap 省显存、一键与批量修复、5 种语言界面，无需 ComfyUI | SeedVR2 video & image super-resolution toolkit: Tauri desktop (one-click install + incremental updates) + web/portable, 3B/7B/7B-Sharp & FP8, GPU Block Swap, one-click & batch restore, 5-language UI, no ComfyUI","visibility":"PUBLIC","isArchived":false,"isFork":false,"createdAt":"2026-07-23T14:24:11Z","pushedAt":"2026-09-21T03:46:59Z","stars":10,"forks":2,"openIssues":0,"openPRs":0,"branches":2,"defaultBranch":"main","license":"Apache-2.0","licenseUrl":"https://github.com/ReSerendipity/SeedVR2-lite/blob/main/LICENSE","releases":19,"latestRelease":{"tag":"v1.5.7","name":"SeedVR2 v1.5.7（增量更新版）","publishedAt":"2026-09-10T13:13:08Z","url":"https://github.com/ReSerendipity/SeedVR2-lite/releases/tag/v1.5.7"},"ci":{"state":"通过","cls":"ok","workflow":"Dependency Audit","ref":"main","ranAt":"2026-09-21T11:21:21Z","url":"https://github.com/ReSerendipity/SeedVR2-lite/actions/runs/35593611751"},"language":"Python","langColor":"#3572A5"},{"name":"DraftPeek","url":"https://github.com/ReSerendipity/DraftPeek","description":"Android 原生代码/文本编辑器：内置终端、Markdown 预览、40+ 语言语法高亮，Jetpack Compose + 整洁架构，安全加固（反调试/完整性校验/加密）| Native Android code/text editor with built-in terminal, Markdown preview & 40+ language highlighting, Jetpack Compose, hardened","visibility":"PUBLIC","isArchived":false,"isFork":false,"createdAt":"2026-08-27T11:41:24Z","pushedAt":"2026-09-20T18:48:48Z","stars":0,"forks":0,"openIssues":2,"openPRs":0,"branches":2,"defaultBranch":"main","license":"Apache-2.0","licenseUrl":"https://github.com/ReSerendipity/DraftPeek/blob/main/LICENSE","releases":1,"latestRelease":null,"ci":{"state":"通过","cls":"ok","workflow":"Stale 自动清理","ref":"main","ranAt":"2026-09-21T08:23:19Z","url":"https://github.com/ReSerendipity/DraftPeek/actions/runs/35577631083"},"language":"Kotlin","langColor":"#A97BFF"},{"name":"SpiritPal","url":"https://github.com/ReSerendipity/SpiritPal","description":"桌边友 · 跨平台 AI 桌面宠物：Tauri v2 + React 19 + Pixi.js 8 Live2D，情感陪伴、轻交互与温和的生产力协助，本地记忆召回 | Cross-platform AI desktop pet — simple yet warm. Tauri v2 (Rust + React 19), Pixi.js 8 Live2D, local memory recall","visibility":"PUBLIC","isArchived":false,"isFork":false,"createdAt":"2026-08-27T11:41:34Z","pushedAt":"2026-09-20T16:25:36Z","stars":0,"forks":0,"openIssues":0,"openPRs":7,"branches":21,"defaultBranch":"main","license":"Apache-2.0","licenseUrl":"https://github.com/ReSerendipity/SpiritPal/blob/main/LICENSE","releases":1,"latestRelease":{"tag":"v0.1.0","name":"SpiritPal v0.1.0","publishedAt":"2026-09-10T10:33:53Z","url":"https://github.com/ReSerendipity/SpiritPal/releases/tag/v0.1.0"},"ci":{"state":"通过","cls":"ok","workflow":"Deps Ecosystem Watch","ref":"main","ranAt":"2026-09-21T10:04:09Z","url":"https://github.com/ReSerendipity/SpiritPal/actions/runs/35586724025"},"language":"TypeScript","langColor":"#3178c6"},{"name":"MiniMax-H3-lite","url":"https://github.com/ReSerendipity/MiniMax-H3-lite","description":"MiniMax H3 本地视频生成时间线工作台：T2V/I2V/R2V 三模式页、多镜头时间线编排，diffusers 进程内推理（官方 ComfyUI 工作流仅作参数契约），单端口 FastAPI + Jinja2，一键启动 / Docker 部署 | One-click local video timeline studio for MiniMax H3: multi-shot T2V/I2V/R2V, in-process diffusers inference, single-port FastAPI + Jinja2 UI","visibility":"PUBLIC","isArchived":false,"isFork":false,"createdAt":"2026-08-17T11:04:25Z","pushedAt":"2026-09-20T15:58:45Z","stars":3,"forks":0,"openIssues":0,"openPRs":0,"branches":3,"defaultBranch":"main","license":"Apache-2.0","licenseUrl":"https://github.com/ReSerendipity/MiniMax-H3-lite/blob/main/LICENSE","releases":6,"latestRelease":{"tag":"v2.5.0","name":"v2.5.0","publishedAt":"2026-09-15T10:29:16Z","url":"https://github.com/ReSerendipity/MiniMax-H3-lite/releases/tag/v2.5.0"},"ci":{"state":"失败","cls":"fail","workflow":"Benchmarks","ref":"main","ranAt":"2026-09-21T12:14:34Z","url":"https://github.com/ReSerendipity/MiniMax-H3-lite/actions/runs/35598402835"},"language":"Python","langColor":"#3572A5"},{"name":"Image_MultiModel","url":"https://github.com/ReSerendipity/Image_MultiModel","description":"AI 图像生成平台：进程内原生引擎（复用 ComfyUI 源码）驱动 Z-Image Turbo，支持 LoRA 叠加、SeedVR2 超分、批量生成、SSE 进度、DCT 水印溯源，中英日韩界面，便携运行 | Native in-process Z-Image Turbo engine + SeedVR2 upscaler, LoRA stacking, batch + SSE progress, DCT watermark, zh/en/ja/ko UI","visibility":"PUBLIC","isArchived":false,"isFork":false,"createdAt":"2026-08-10T03:42:31Z","pushedAt":"2026-09-20T15:49:42Z","stars":0,"forks":0,"openIssues":0,"openPRs":1,"branches":2,"defaultBranch":"main","license":"Apache-2.0","licenseUrl":"https://github.com/ReSerendipity/Image_MultiModel/blob/main/LICENSE","releases":3,"latestRelease":{"tag":"v1.2.2","name":"v1.2.2","publishedAt":"2026-09-11T14:44:47Z","url":"https://github.com/ReSerendipity/Image_MultiModel/releases/tag/v1.2.2"},"ci":{"state":"失败","cls":"fail","workflow":"Security","ref":"main","ranAt":"2026-09-21T12:26:27Z","url":"https://github.com/ReSerendipity/Image_MultiModel/actions/runs/35599549421"},"language":"Python","langColor":"#3572A5"},{"name":".github","url":"https://github.com/ReSerendipity/.github","description":"Default community health files and contribution templates for ReSerendipity repositories","visibility":"PUBLIC","isArchived":false,"isFork":false,"createdAt":"2026-09-03T08:12:39Z","pushedAt":"2026-09-20T14:42:57Z","stars":0,"forks":0,"openIssues":0,"openPRs":0,"branches":2,"defaultBranch":"main","license":null,"licenseUrl":null,"releases":0,"latestRelease":null,"ci":{"state":"无 CI 记录","cls":"none","workflow":null,"ref":null,"ranAt":null,"url":null},"language":null,"langColor":"#8b949e"},{"name":"Lineart_Painter","url":"https://github.com/ReSerendipity/Lineart_Painter","description":"Local AI image and video line-art redraw workstation with staged coloring, neural models, and a browser UI","visibility":"PUBLIC","isArchived":false,"isFork":false,"createdAt":"2026-09-10T02:15:01Z","pushedAt":"2026-09-16T11:32:22Z","stars":0,"forks":0,"openIssues":0,"openPRs":0,"branches":1,"defaultBranch":"main","license":"Apache-2.0","licenseUrl":"https://github.com/ReSerendipity/Lineart_Painter/blob/main/LICENSE","releases":1,"latestRelease":{"tag":"v1.0.0","name":"v1.0.0","publishedAt":"2026-09-13T14:46:24Z","url":"https://github.com/ReSerendipity/Lineart_Painter/releases/tag/v1.0.0"},"ci":{"state":"通过","cls":"ok","workflow":"Release","ref":"v1.0.0","ranAt":"2026-09-13T14:45:27Z","url":"https://github.com/ReSerendipity/Lineart_Painter/actions/runs/34763583043"},"language":"Python","langColor":"#3572A5"},{"name":"Card-Studio","url":"https://github.com/ReSerendipity/Card-Studio","description":"Browser-based multi-view 3D holographic card generator with cutout, layered compositing, and interactive rotation","visibility":"PUBLIC","isArchived":false,"isFork":false,"createdAt":"2026-09-10T02:15:01Z","pushedAt":"2026-09-16T11:32:19Z","stars":0,"forks":0,"openIssues":0,"openPRs":0,"branches":2,"defaultBranch":"main","license":"Apache-2.0","licenseUrl":"https://github.com/ReSerendipity/Card-Studio/blob/main/LICENSE","releases":1,"latestRelease":{"tag":"v1.0.0","name":"Card Studio v1.0.0","publishedAt":"2026-09-13T15:50:02Z","url":"https://github.com/ReSerendipity/Card-Studio/releases/tag/v1.0.0"},"ci":{"state":"通过","cls":"ok","workflow":"Release","ref":"v1.0.0","ranAt":"2026-09-13T15:41:57Z","url":"https://github.com/ReSerendipity/Card-Studio/actions/runs/34766378675"},"language":"JavaScript","langColor":"#f1e05a"},{"name":"ReSerendipity","url":"https://github.com/ReSerendipity/ReSerendipity","description":"Open-source multimodal AI applications and creative tools","visibility":"PUBLIC","isArchived":false,"isFork":false,"createdAt":"2026-09-09T09:20:17Z","pushedAt":"2026-09-14T15:27:28Z","stars":0,"forks":0,"openIssues":0,"openPRs":0,"branches":1,"defaultBranch":"main","license":null,"licenseUrl":null,"releases":0,"latestRelease":null,"ci":{"state":"无 CI 记录","cls":"none","workflow":null,"ref":null,"ranAt":null,"url":null},"language":null,"langColor":"#8b949e"},{"name":"RTX_VSR-lite","url":"https://github.com/ReSerendipity/RTX_VSR-lite","description":"Standalone NVIDIA RTX Video Super Resolution (VSR) video upscaler CLI - upscale videos via the nvvfx SDK, no ComfyUI required.","visibility":"PUBLIC","isArchived":false,"isFork":false,"createdAt":"2026-09-12T15:40:28Z","pushedAt":"2026-09-12T15:40:41Z","stars":0,"forks":0,"openIssues":0,"openPRs":0,"branches":1,"defaultBranch":"main","license":"Apache-2.0","licenseUrl":"https://github.com/ReSerendipity/RTX_VSR-lite/blob/main/LICENSE","releases":0,"latestRelease":null,"ci":{"state":"无 CI 记录","cls":"none","workflow":null,"ref":null,"ranAt":null,"url":null},"language":"Python","langColor":"#3572A5"},{"name":"Multi-Tracker","url":"https://github.com/ReSerendipity/Multi-Tracker","description":"Multi-platform video creator tracking toolkit — download videos, sync to Feishu, fetch comments & AI transcription across Bilibili, Douyin, Kuaishou and Xiaohongshu.","visibility":"PUBLIC","isArchived":false,"isFork":false,"createdAt":"2026-08-06T01:16:33Z","pushedAt":"2026-09-09T09:30:36Z","stars":0,"forks":0,"openIssues":0,"openPRs":0,"branches":1,"defaultBranch":"main","license":"Apache-2.0","licenseUrl":"https://github.com/ReSerendipity/Multi-Tracker/blob/main/LICENSE","releases":0,"latestRelease":null,"ci":{"state":"无 CI 记录","cls":"none","workflow":null,"ref":null,"ranAt":null,"url":null},"language":"Python","langColor":"#3572A5"},{"name":"Unfading-Wall","url":"https://github.com/ReSerendipity/Unfading-Wall","description":"黑板·上的话 — 教师节师生印象墙：学生手书的信贴上老师的黑板墙，零后端链接分享（Apache-2.0）","visibility":"PUBLIC","isArchived":false,"isFork":false,"createdAt":"2026-09-08T12:56:48Z","pushedAt":"2026-09-08T13:28:03Z","stars":0,"forks":0,"openIssues":0,"openPRs":0,"branches":1,"defaultBranch":"main","license":"Apache-2.0","licenseUrl":"https://github.com/ReSerendipity/Unfading-Wall/blob/main/LICENSE","releases":1,"latestRelease":{"tag":"v1.0.0","name":"v1.0.0 黑板·上的话 · 师者印象墙","publishedAt":"2026-09-08T13:21:59Z","url":"https://github.com/ReSerendipity/Unfading-Wall/releases/tag/v1.0.0"},"ci":{"state":"通过","cls":"ok","workflow":"pages build and deployment","ref":"main","ranAt":"2026-09-08T13:28:05Z","url":"https://github.com/ReSerendipity/Unfading-Wall/actions/runs/34232137433"},"language":"JavaScript","langColor":"#f1e05a"},{"name":"ComfyUI-BatchPromptLoader","url":"https://github.com/ReSerendipity/ComfyUI-BatchPromptLoader","description":"ComfyUI custom node: load and encode prompts from TXT files with fixed/increment/decrement/random modes","visibility":"PUBLIC","isArchived":false,"isFork":false,"createdAt":"2026-08-21T11:57:44Z","pushedAt":"2026-09-02T09:17:12Z","stars":1,"forks":0,"openIssues":0,"openPRs":0,"branches":1,"defaultBranch":"master","license":"MIT","licenseUrl":"https://github.com/ReSerendipity/ComfyUI-BatchPromptLoader/blob/master/LICENSE","releases":0,"latestRelease":null,"ci":{"state":"通过","cls":"ok","workflow":"Graph Update: pip in /. #1535286651","ref":"master","ranAt":"2026-08-21T11:57:56Z","url":"https://github.com/ReSerendipity/ComfyUI-BatchPromptLoader/actions/runs/32479622166"},"language":"Python","langColor":"#3572A5"},{"name":"ComfyUI-Manager","url":"https://github.com/ReSerendipity/ComfyUI-Manager","description":"ComfyUI-Manager is an extension designed to enhance the usability of ComfyUI. It offers management functions to install, remove, disable, and enable various custom nodes of ComfyUI. Furthermore, this extension provides a hub feature and convenience functions to access a wide range of information within ComfyUI.","visibility":"PUBLIC","isArchived":false,"isFork":true,"createdAt":"2026-08-21T11:58:01Z","pushedAt":"2026-09-02T08:38:32Z","stars":0,"forks":0,"openIssues":0,"openPRs":0,"branches":34,"defaultBranch":"main","license":"GPL-3.0","licenseUrl":"https://github.com/ReSerendipity/ComfyUI-Manager/blob/main/LICENSE.txt","releases":0,"latestRelease":null,"ci":{"state":"无 CI 记录","cls":"none","workflow":null,"ref":null,"ranAt":null,"url":null},"language":"Python","langColor":"#3572A5"}]};
+window.__SCAN_DATA__ = {"schema":2,"owner":"ReSerendipity","avatarUrl":"https://avatars.githubusercontent.com/u/259081123?s=96&u=8f95238d55cf3ad3e9d3fac10c5d2d6a937b2d4a&v=4","scannedAt":"2026-09-21T13:05:01.950Z","truncated":false,"rate":{"limit":5000,"remaining":5000,"reset":1789999516,"used":0},"totals":{"repos":18,"totalRepos":18,"stars":24,"forks":4,"openIssues":5,"openPRs":16,"releases":37,"ciDone":11,"ciOk":9},"rows":[{"name":"github-repo-scan","url":"https://github.com/ReSerendipity/github-repo-scan","description":"GitHub 账号仓库总览面板：CI / 许可证 / Release / Issue / 分支 / Star·Fork 一张表看完，双击即用 | Local dashboard scanning all your GitHub repos: CI, license, releases, issues, branches, stars - clickable links","visibility":"PUBLIC","isArchived":false,"isFork":false,"createdAt":"2026-09-21T12:56:10Z","pushedAt":"2026-09-21T12:56:15Z","stars":0,"forks":0,"openIssues":0,"openPRs":0,"branches":1,"defaultBranch":"main","license":null,"licenseUrl":null,"releases":0,"latestRelease":null,"ci":{"state":"无 CI 记录","cls":"none","workflow":null,"ref":null,"ranAt":null,"url":null,"trend":[]},"language":"HTML","langColor":"#e34c26"},{"name":"TTS_MultiModel","url":"https://github.com/ReSerendipity/TTS_MultiModel","description":"五引擎语音合成平台：VoxCPM2 / IndexTTS 2.5 / IndexTTS 2.0 / OpenVoice / Step-Audio-EditX，声音克隆、声音设计、多角色剧本配音、流式生成，中英日韩界面，Windows/Linux/Docker 一键部署 | Multi-engine TTS platform (5 engines) with voice cloning, voice design, multi-character dubbing & streaming, zh/en/ja/ko UI, one-click deploy","visibility":"PUBLIC","isArchived":false,"isFork":false,"createdAt":"2026-05-08T00:48:26Z","pushedAt":"2026-09-21T12:27:57Z","stars":10,"forks":2,"openIssues":3,"openPRs":8,"branches":20,"defaultBranch":"main","license":"Apache-2.0","licenseUrl":"https://github.com/ReSerendipity/TTS_MultiModel/blob/main/LICENSE","releases":4,"latestRelease":{"tag":"v2.2.1","name":"v2.2.1","publishedAt":"2026-08-22T04:43:17Z","url":"https://github.com/ReSerendipity/TTS_MultiModel/releases/tag/v2.2.1"},"ci":{"state":"通过","cls":"ok","workflow":"CI","ref":"ci/engine-import-and-indextts20-smoke","ranAt":"2026-09-21T12:28:03Z","url":"https://github.com/ReSerendipity/TTS_MultiModel/actions/runs/35599697733","trend":[{"s":"completed","c":"failure","at":"2026-09-21T12:28:02Z"},{"s":"completed","c":"success","at":"2026-09-21T12:28:02Z"},{"s":"completed","c":"success","at":"2026-09-21T12:28:02Z"},{"s":"completed","c":"success","at":"2026-09-21T12:28:02Z"},{"s":"completed","c":"success","at":"2026-09-21T12:28:03Z"}]},"language":"Python","langColor":"#3572A5"},{"name":"offer-landing-kit","url":"https://github.com/ReSerendipity/offer-landing-kit","description":"到岗前作战包 · Offer→入职 衔接工具：离职交接清单 / 社保断档测算 / 试用期100天台账。纯前端单文件，数据不出本机。","visibility":"PUBLIC","isArchived":false,"isFork":false,"createdAt":"2026-09-21T11:26:15Z","pushedAt":"2026-09-21T12:11:50Z","stars":0,"forks":0,"openIssues":0,"openPRs":0,"branches":1,"defaultBranch":"main","license":null,"licenseUrl":null,"releases":0,"latestRelease":null,"ci":{"state":"通过","cls":"ok","workflow":"pages build and deployment","ref":"main","ranAt":"2026-09-21T12:11:52Z","url":"https://github.com/ReSerendipity/offer-landing-kit/actions/runs/35598139299","trend":[{"s":"completed","c":"success","at":"2026-09-21T11:26:36Z"},{"s":"completed","c":"success","at":"2026-09-21T11:53:31Z"},{"s":"completed","c":"success","at":"2026-09-21T12:11:52Z"}]},"language":"HTML","langColor":"#e34c26"},{"name":"health-info-card","url":"https://github.com/ReSerendipity/health-info-card","description":"安心牌 · 老人急救信息卡（FoloToy AI Passport 玩法）","visibility":"PUBLIC","isArchived":false,"isFork":false,"createdAt":"2026-09-21T07:48:21Z","pushedAt":"2026-09-21T07:48:28Z","stars":0,"forks":0,"openIssues":0,"openPRs":0,"branches":1,"defaultBranch":"health-info-official","license":"MIT","licenseUrl":"https://github.com/ReSerendipity/health-info-card/blob/health-info-official/LICENSE","releases":0,"latestRelease":null,"ci":{"state":"无 CI 记录","cls":"none","workflow":null,"ref":null,"ranAt":null,"url":null,"trend":[]},"language":"C","langColor":"#555555"},{"name":"SeedVR2-lite","url":"https://github.com/ReSerendipity/SeedVR2-lite","description":"SeedVR2 视频/图像超分辨率修复工具箱：Tauri 桌面版（一键安装+增量更新）与网页版/便携包，支持 3B/7B/7B-Sharp、FP8、GPU Block Swap 省显存、一键与批量修复、5 种语言界面，无需 ComfyUI | SeedVR2 video & image super-resolution toolkit: Tauri desktop (one-click install + incremental updates) + web/portable, 3B/7B/7B-Sharp & FP8, GPU Block Swap, one-click & batch restore, 5-language UI, no ComfyUI","visibility":"PUBLIC","isArchived":false,"isFork":false,"createdAt":"2026-07-23T14:24:11Z","pushedAt":"2026-09-21T03:46:59Z","stars":10,"forks":2,"openIssues":0,"openPRs":0,"branches":2,"defaultBranch":"main","license":"Apache-2.0","licenseUrl":"https://github.com/ReSerendipity/SeedVR2-lite/blob/main/LICENSE","releases":19,"latestRelease":{"tag":"v1.5.7","name":"SeedVR2 v1.5.7（增量更新版）","publishedAt":"2026-09-10T13:13:08Z","url":"https://github.com/ReSerendipity/SeedVR2-lite/releases/tag/v1.5.7"},"ci":{"state":"通过","cls":"ok","workflow":"Dependency Audit","ref":"main","ranAt":"2026-09-21T11:21:21Z","url":"https://github.com/ReSerendipity/SeedVR2-lite/actions/runs/35593611751","trend":[{"s":"completed","c":"success","at":"2026-09-21T07:27:56Z"},{"s":"completed","c":"success","at":"2026-09-21T08:03:51Z"},{"s":"completed","c":"success","at":"2026-09-21T08:16:57Z"},{"s":"completed","c":"success","at":"2026-09-21T09:34:59Z"},{"s":"completed","c":"success","at":"2026-09-21T11:21:21Z"}]},"language":"Python","langColor":"#3572A5"},{"name":"DraftPeek","url":"https://github.com/ReSerendipity/DraftPeek","description":"Android 原生代码/文本编辑器：内置终端、Markdown 预览、40+ 语言语法高亮，Jetpack Compose + 整洁架构，安全加固（反调试/完整性校验/加密）| Native Android code/text editor with built-in terminal, Markdown preview & 40+ language highlighting, Jetpack Compose, hardened","visibility":"PUBLIC","isArchived":false,"isFork":false,"createdAt":"2026-08-27T11:41:24Z","pushedAt":"2026-09-20T18:48:48Z","stars":0,"forks":0,"openIssues":2,"openPRs":0,"branches":2,"defaultBranch":"main","license":"Apache-2.0","licenseUrl":"https://github.com/ReSerendipity/DraftPeek/blob/main/LICENSE","releases":1,"latestRelease":null,"ci":{"state":"通过","cls":"ok","workflow":"Stale 自动清理","ref":"main","ranAt":"2026-09-21T08:23:19Z","url":"https://github.com/ReSerendipity/DraftPeek/actions/runs/35577631083","trend":[{"s":"completed","c":"success","at":"2026-09-21T06:51:25Z"},{"s":"completed","c":"failure","at":"2026-09-21T07:28:09Z"},{"s":"completed","c":"success","at":"2026-09-21T07:49:53Z"},{"s":"completed","c":"success","at":"2026-09-21T08:09:04Z"},{"s":"completed","c":"success","at":"2026-09-21T08:23:19Z"}]},"language":"Kotlin","langColor":"#A97BFF"},{"name":"SpiritPal","url":"https://github.com/ReSerendipity/SpiritPal","description":"桌边友 · 跨平台 AI 桌面宠物：Tauri v2 + React 19 + Pixi.js 8 Live2D，情感陪伴、轻交互与温和的生产力协助，本地记忆召回 | Cross-platform AI desktop pet — simple yet warm. Tauri v2 (Rust + React 19), Pixi.js 8 Live2D, local memory recall","visibility":"PUBLIC","isArchived":false,"isFork":false,"createdAt":"2026-08-27T11:41:34Z","pushedAt":"2026-09-20T16:25:36Z","stars":0,"forks":0,"openIssues":0,"openPRs":7,"branches":21,"defaultBranch":"main","license":"Apache-2.0","licenseUrl":"https://github.com/ReSerendipity/SpiritPal/blob/main/LICENSE","releases":1,"latestRelease":{"tag":"v0.1.0","name":"SpiritPal v0.1.0","publishedAt":"2026-09-10T10:33:53Z","url":"https://github.com/ReSerendipity/SpiritPal/releases/tag/v0.1.0"},"ci":{"state":"通过","cls":"ok","workflow":"Deps Ecosystem Watch","ref":"main","ranAt":"2026-09-21T10:04:09Z","url":"https://github.com/ReSerendipity/SpiritPal/actions/runs/35586724025","trend":[{"s":"completed","c":"success","at":"2026-09-21T02:13:23Z"},{"s":"completed","c":"success","at":"2026-09-21T07:25:59Z"},{"s":"completed","c":"failure","at":"2026-09-21T08:38:21Z"},{"s":"completed","c":"success","at":"2026-09-21T08:45:22Z"},{"s":"completed","c":"success","at":"2026-09-21T10:04:09Z"}]},"language":"TypeScript","langColor":"#3178c6"},{"name":"MiniMax-H3-lite","url":"https://github.com/ReSerendipity/MiniMax-H3-lite","description":"MiniMax H3 本地视频生成时间线工作台：T2V/I2V/R2V 三模式页、多镜头时间线编排，diffusers 进程内推理（官方 ComfyUI 工作流仅作参数契约），单端口 FastAPI + Jinja2，一键启动 / Docker 部署 | One-click local video timeline studio for MiniMax H3: multi-shot T2V/I2V/R2V, in-process diffusers inference, single-port FastAPI + Jinja2 UI","visibility":"PUBLIC","isArchived":false,"isFork":false,"createdAt":"2026-08-17T11:04:25Z","pushedAt":"2026-09-20T15:58:45Z","stars":3,"forks":0,"openIssues":0,"openPRs":0,"branches":3,"defaultBranch":"main","license":"Apache-2.0","licenseUrl":"https://github.com/ReSerendipity/MiniMax-H3-lite/blob/main/LICENSE","releases":6,"latestRelease":{"tag":"v2.5.0","name":"v2.5.0","publishedAt":"2026-09-15T10:29:16Z","url":"https://github.com/ReSerendipity/MiniMax-H3-lite/releases/tag/v2.5.0"},"ci":{"state":"失败","cls":"fail","workflow":"Benchmarks","ref":"main","ranAt":"2026-09-21T12:14:34Z","url":"https://github.com/ReSerendipity/MiniMax-H3-lite/actions/runs/35598402835","trend":[{"s":"completed","c":"success","at":"2026-09-21T08:25:35Z"},{"s":"completed","c":"success","at":"2026-09-21T08:29:51Z"},{"s":"completed","c":"success","at":"2026-09-21T08:42:57Z"},{"s":"completed","c":"success","at":"2026-09-21T10:21:15Z"},{"s":"completed","c":"failure","at":"2026-09-21T12:14:34Z"}]},"language":"Python","langColor":"#3572A5"},{"name":"Image_MultiModel","url":"https://github.com/ReSerendipity/Image_MultiModel","description":"AI 图像生成平台：进程内原生引擎（复用 ComfyUI 源码）驱动 Z-Image Turbo，支持 LoRA 叠加、SeedVR2 超分、批量生成、SSE 进度、DCT 水印溯源，中英日韩界面，便携运行 | Native in-process Z-Image Turbo engine + SeedVR2 upscaler, LoRA stacking, batch + SSE progress, DCT watermark, zh/en/ja/ko UI","visibility":"PUBLIC","isArchived":false,"isFork":false,"createdAt":"2026-08-10T03:42:31Z","pushedAt":"2026-09-20T15:49:42Z","stars":0,"forks":0,"openIssues":0,"openPRs":1,"branches":2,"defaultBranch":"main","license":"Apache-2.0","licenseUrl":"https://github.com/ReSerendipity/Image_MultiModel/blob/main/LICENSE","releases":3,"latestRelease":{"tag":"v1.2.2","name":"v1.2.2","publishedAt":"2026-09-11T14:44:47Z","url":"https://github.com/ReSerendipity/Image_MultiModel/releases/tag/v1.2.2"},"ci":{"state":"失败","cls":"fail","workflow":"Security","ref":"main","ranAt":"2026-09-21T12:26:27Z","url":"https://github.com/ReSerendipity/Image_MultiModel/actions/runs/35599549421","trend":[{"s":"completed","c":"success","at":"2026-09-21T07:38:02Z"},{"s":"completed","c":"success","at":"2026-09-21T08:06:54Z"},{"s":"completed","c":"success","at":"2026-09-21T08:35:59Z"},{"s":"completed","c":"success","at":"2026-09-21T08:46:10Z"},{"s":"completed","c":"failure","at":"2026-09-21T12:26:27Z"}]},"language":"Python","langColor":"#3572A5"},{"name":".github","url":"https://github.com/ReSerendipity/.github","description":"Default community health files and contribution templates for ReSerendipity repositories","visibility":"PUBLIC","isArchived":false,"isFork":false,"createdAt":"2026-09-03T08:12:39Z","pushedAt":"2026-09-20T14:42:57Z","stars":0,"forks":0,"openIssues":0,"openPRs":0,"branches":2,"defaultBranch":"main","license":null,"licenseUrl":null,"releases":0,"latestRelease":null,"ci":{"state":"无 CI 记录","cls":"none","workflow":null,"ref":null,"ranAt":null,"url":null,"trend":[]},"language":null,"langColor":"#8b949e"},{"name":"Lineart_Painter","url":"https://github.com/ReSerendipity/Lineart_Painter","description":"Local AI image and video line-art redraw workstation with staged coloring, neural models, and a browser UI","visibility":"PUBLIC","isArchived":false,"isFork":false,"createdAt":"2026-09-10T02:15:01Z","pushedAt":"2026-09-16T11:32:22Z","stars":0,"forks":0,"openIssues":0,"openPRs":0,"branches":1,"defaultBranch":"main","license":"Apache-2.0","licenseUrl":"https://github.com/ReSerendipity/Lineart_Painter/blob/main/LICENSE","releases":1,"latestRelease":{"tag":"v1.0.0","name":"v1.0.0","publishedAt":"2026-09-13T14:46:24Z","url":"https://github.com/ReSerendipity/Lineart_Painter/releases/tag/v1.0.0"},"ci":{"state":"通过","cls":"ok","workflow":"Release","ref":"v1.0.0","ranAt":"2026-09-13T14:45:27Z","url":"https://github.com/ReSerendipity/Lineart_Painter/actions/runs/34763583043","trend":[{"s":"completed","c":"failure","at":"2026-09-13T14:33:51Z"},{"s":"completed","c":"success","at":"2026-09-13T14:45:27Z"}]},"language":"Python","langColor":"#3572A5"},{"name":"Card-Studio","url":"https://github.com/ReSerendipity/Card-Studio","description":"Browser-based multi-view 3D holographic card generator with cutout, layered compositing, and interactive rotation","visibility":"PUBLIC","isArchived":false,"isFork":false,"createdAt":"2026-09-10T02:15:01Z","pushedAt":"2026-09-16T11:32:19Z","stars":0,"forks":0,"openIssues":0,"openPRs":0,"branches":2,"defaultBranch":"main","license":"Apache-2.0","licenseUrl":"https://github.com/ReSerendipity/Card-Studio/blob/main/LICENSE","releases":1,"latestRelease":{"tag":"v1.0.0","name":"Card Studio v1.0.0","publishedAt":"2026-09-13T15:50:02Z","url":"https://github.com/ReSerendipity/Card-Studio/releases/tag/v1.0.0"},"ci":{"state":"通过","cls":"ok","workflow":"Release","ref":"v1.0.0","ranAt":"2026-09-13T15:41:57Z","url":"https://github.com/ReSerendipity/Card-Studio/actions/runs/34766378675","trend":[{"s":"completed","c":"failure","at":"2026-09-13T14:50:28Z"},{"s":"completed","c":"failure","at":"2026-09-13T14:50:39Z"},{"s":"completed","c":"failure","at":"2026-09-13T14:54:08Z"},{"s":"completed","c":"success","at":"2026-09-13T15:14:19Z"},{"s":"completed","c":"success","at":"2026-09-13T15:41:57Z"}]},"language":"JavaScript","langColor":"#f1e05a"},{"name":"ReSerendipity","url":"https://github.com/ReSerendipity/ReSerendipity","description":"Open-source multimodal AI applications and creative tools","visibility":"PUBLIC","isArchived":false,"isFork":false,"createdAt":"2026-09-09T09:20:17Z","pushedAt":"2026-09-14T15:27:28Z","stars":0,"forks":0,"openIssues":0,"openPRs":0,"branches":1,"defaultBranch":"main","license":null,"licenseUrl":null,"releases":0,"latestRelease":null,"ci":{"state":"无 CI 记录","cls":"none","workflow":null,"ref":null,"ranAt":null,"url":null,"trend":[]},"language":null,"langColor":"#8b949e"},{"name":"RTX_VSR-lite","url":"https://github.com/ReSerendipity/RTX_VSR-lite","description":"Standalone NVIDIA RTX Video Super Resolution (VSR) video upscaler CLI - upscale videos via the nvvfx SDK, no ComfyUI required.","visibility":"PUBLIC","isArchived":false,"isFork":false,"createdAt":"2026-09-12T15:40:28Z","pushedAt":"2026-09-12T15:40:41Z","stars":0,"forks":0,"openIssues":0,"openPRs":0,"branches":1,"defaultBranch":"main","license":"Apache-2.0","licenseUrl":"https://github.com/ReSerendipity/RTX_VSR-lite/blob/main/LICENSE","releases":0,"latestRelease":null,"ci":{"state":"无 CI 记录","cls":"none","workflow":null,"ref":null,"ranAt":null,"url":null,"trend":[]},"language":"Python","langColor":"#3572A5"},{"name":"Multi-Tracker","url":"https://github.com/ReSerendipity/Multi-Tracker","description":"Multi-platform video creator tracking toolkit — download videos, sync to Feishu, fetch comments & AI transcription across Bilibili, Douyin, Kuaishou and Xiaohongshu.","visibility":"PUBLIC","isArchived":false,"isFork":false,"createdAt":"2026-08-06T01:16:33Z","pushedAt":"2026-09-09T09:30:36Z","stars":0,"forks":0,"openIssues":0,"openPRs":0,"branches":1,"defaultBranch":"main","license":"Apache-2.0","licenseUrl":"https://github.com/ReSerendipity/Multi-Tracker/blob/main/LICENSE","releases":0,"latestRelease":null,"ci":{"state":"无 CI 记录","cls":"none","workflow":null,"ref":null,"ranAt":null,"url":null,"trend":[]},"language":"Python","langColor":"#3572A5"},{"name":"Unfading-Wall","url":"https://github.com/ReSerendipity/Unfading-Wall","description":"黑板·上的话 — 教师节师生印象墙：学生手书的信贴上老师的黑板墙，零后端链接分享（Apache-2.0）","visibility":"PUBLIC","isArchived":false,"isFork":false,"createdAt":"2026-09-08T12:56:48Z","pushedAt":"2026-09-08T13:28:03Z","stars":0,"forks":0,"openIssues":0,"openPRs":0,"branches":1,"defaultBranch":"main","license":"Apache-2.0","licenseUrl":"https://github.com/ReSerendipity/Unfading-Wall/blob/main/LICENSE","releases":1,"latestRelease":{"tag":"v1.0.0","name":"v1.0.0 黑板·上的话 · 师者印象墙","publishedAt":"2026-09-08T13:21:59Z","url":"https://github.com/ReSerendipity/Unfading-Wall/releases/tag/v1.0.0"},"ci":{"state":"通过","cls":"ok","workflow":"pages build and deployment","ref":"main","ranAt":"2026-09-08T13:28:05Z","url":"https://github.com/ReSerendipity/Unfading-Wall/actions/runs/34232137433","trend":[{"s":"completed","c":"cancelled","at":"2026-09-08T13:21:47Z"},{"s":"completed","c":"success","at":"2026-09-08T13:21:59Z"},{"s":"completed","c":"success","at":"2026-09-08T13:23:10Z"},{"s":"completed","c":"success","at":"2026-09-08T13:28:05Z"}]},"language":"JavaScript","langColor":"#f1e05a"},{"name":"ComfyUI-BatchPromptLoader","url":"https://github.com/ReSerendipity/ComfyUI-BatchPromptLoader","description":"ComfyUI custom node: load and encode prompts from TXT files with fixed/increment/decrement/random modes","visibility":"PUBLIC","isArchived":false,"isFork":false,"createdAt":"2026-08-21T11:57:44Z","pushedAt":"2026-09-02T09:17:12Z","stars":1,"forks":0,"openIssues":0,"openPRs":0,"branches":1,"defaultBranch":"master","license":"MIT","licenseUrl":"https://github.com/ReSerendipity/ComfyUI-BatchPromptLoader/blob/master/LICENSE","releases":0,"latestRelease":null,"ci":{"state":"通过","cls":"ok","workflow":"Graph Update: pip in /. #1535286651","ref":"master","ranAt":"2026-08-21T11:57:56Z","url":"https://github.com/ReSerendipity/ComfyUI-BatchPromptLoader/actions/runs/32479622166","trend":[{"s":"completed","c":"success","at":"2026-08-21T11:57:56Z"}]},"language":"Python","langColor":"#3572A5"},{"name":"ComfyUI-Manager","url":"https://github.com/ReSerendipity/ComfyUI-Manager","description":"ComfyUI-Manager is an extension designed to enhance the usability of ComfyUI. It offers management functions to install, remove, disable, and enable various custom nodes of ComfyUI. Furthermore, this extension provides a hub feature and convenience functions to access a wide range of information within ComfyUI.","visibility":"PUBLIC","isArchived":false,"isFork":true,"createdAt":"2026-08-21T11:58:01Z","pushedAt":"2026-09-02T08:38:32Z","stars":0,"forks":0,"openIssues":0,"openPRs":0,"branches":34,"defaultBranch":"main","license":"GPL-3.0","licenseUrl":"https://github.com/ReSerendipity/ComfyUI-Manager/blob/main/LICENSE.txt","releases":0,"latestRelease":null,"ci":{"state":"无 CI 记录","cls":"none","workflow":null,"ref":null,"ranAt":null,"url":null,"trend":[]},"language":"Python","langColor":"#3572A5"}]};
 </script>
 <script>
 (function () {
@@ -166,8 +211,11 @@ window.__SCAN_DATA__ = {"owner":"ReSerendipity","avatarUrl":"https://avatars.git
   var SVG_MOON = '<svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="M9.598 1.591a.749.749 0 0 1 .785-.175 7.001 7.001 0 1 1-8.967 8.967.75.75 0 0 1 .961-.96 5.5 5.5 0 0 0 7.046-7.046.75.75 0 0 1 .175-.786Zm1.616 1.945a7 7 0 0 1-7.678 7.678 5.499 5.499 0 1 0 7.678-7.678Z"/></svg>';
   var SVG_SYNC = '<svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="M1.705 8.005a.75.75 0 0 1 .834.656 5.5 5.5 0 0 0 9.592 2.97l-1.204-1.204a.25.25 0 0 1 .177-.427h3.646a.25.25 0 0 1 .25.25v3.646a.25.25 0 0 1-.427.177l-1.38-1.38A7.002 7.002 0 0 1 1.05 8.84a.75.75 0 0 1 .656-.834ZM8 2.5a5.487 5.487 0 0 0-4.131 1.869l1.204 1.204A.25.25 0 0 1 4.896 6H1.25A.25.25 0 0 1 1 5.75V2.104a.25.25 0 0 1 .427-.177l1.38 1.38A7.002 7.002 0 0 1 14.95 7.16a.75.75 0 0 1-1.49.178A5.5 5.5 0 0 0 8 2.5Z"/></svg>';
 
-  var state = { data: null, sortKey: 'pushedAt', sortDir: 'desc', scanning: false };
   var THEME_KEY = 'grs-theme';
+  var AUTO_KEY = 'grs-auto';
+  var SORT_KEY = 'grs-sort';
+  var state = { data: null, sortKey: 'pushedAt', sortDir: 'desc', scanning: false, q: '', fLang: '', fStatus: '', noFork: false };
+  var autoTimer = null;
 
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -210,6 +258,54 @@ window.__SCAN_DATA__ = {"owner":"ReSerendipity","avatarUrl":"https://avatars.git
   };
   var ASC_DEFAULT = { name: true, license: true, language: true };
 
+  function saveSort() {
+    try { localStorage.setItem(SORT_KEY, JSON.stringify({ k: state.sortKey, d: state.sortDir })); } catch (e) {}
+  }
+  function loadSort() {
+    try {
+      var ss = JSON.parse(localStorage.getItem(SORT_KEY) || 'null');
+      if (ss && SORT_VAL[ss.k]) {
+        state.sortKey = ss.k;
+        state.sortDir = ss.d === 'asc' ? 'asc' : 'desc';
+      }
+    } catch (e) {}
+  }
+
+  /* ---------- 筛选 ---------- */
+  function matchFilters(r) {
+    if (state.noFork && r.isFork) return false;
+    if (state.fStatus === 'ok' && r.ci.cls !== 'ok') return false;
+    if (state.fStatus === 'fail' && r.ci.cls !== 'fail') return false;
+    if (state.fStatus === 'running' && r.ci.cls !== 'running') return false;
+    if (state.fStatus === 'none' && r.ci.cls !== 'none') return false;
+    if (state.fStatus === 'hasIssue' && r.openIssues <= 0) return false;
+    if (state.fStatus === 'noLic' && r.license) return false;
+    if (state.fLang && r.language !== state.fLang) return false;
+    if (state.q) {
+      var qq = state.q.toLowerCase();
+      var hay = (r.name + ' ' + (r.description || '')).toLowerCase();
+      if (hay.indexOf(qq) === -1) return false;
+    }
+    return true;
+  }
+
+  function rebuildLangOptions() {
+    var sel = document.getElementById('fLang');
+    var langs = {};
+    state.data.rows.forEach(function (r) { if (r.language) langs[r.language] = true; });
+    var names = Object.keys(langs).sort(function (a, b) { return a.localeCompare(b, 'zh-CN'); });
+    var cur = sel.value || state.fLang;
+    var html = '<option value="">全部语言</option>';
+    for (var i = 0; i < names.length; i++) html += '<option value="' + esc(names[i]) + '">' + esc(names[i]) + '</option>';
+    sel.innerHTML = html;
+    if (cur && names.indexOf(cur) >= 0) { sel.value = cur; state.fLang = cur; }
+    else { state.fLang = ''; }
+  }
+
+  function visibleRows() {
+    return currentRows().filter(matchFilters);
+  }
+
   function currentRows() {
     var rows = state.data.rows.slice();
     var val = SORT_VAL[state.sortKey] || SORT_VAL.pushedAt;
@@ -241,12 +337,27 @@ window.__SCAN_DATA__ = {"owner":"ReSerendipity","avatarUrl":"https://avatars.git
     return '<div class="metric"><div class="v">' + v + '</div><div class="k">' + k + '</div></div>';
   }
 
+  function trendDots(r) {
+    var t = (r.ci && r.ci.trend) || [];
+    if (!t.length) return '';
+    var out = '<span class="trend">';
+    for (var i = 0; i < t.length; i++) {
+      var x = t[i];
+      var cls = '';
+      if (x.c === 'success') cls = 'ok';
+      else if (x.c === 'failure' || x.c === 'timed_out' || x.c === 'startup_failure' || x.c === 'action_required') cls = 'fail';
+      else if (x.s && x.s !== 'completed') cls = 'run';
+      out += '<span class="tdot ' + cls + '" title="' + esc(fullTime(x.at)) + ' · ' + esc(x.c == null ? (x.s || '未知') : x.c) + '"></span>';
+    }
+    return out + '</span>';
+  }
+
   function ciCell(r) {
     var ci = r.ci;
-    if (!ci.url) return '<span class="badge ' + ci.cls + '"><span class="dot"></span>' + esc(ci.state) + '</span>';
+    if (!ci.url) return '<span class="badge ' + ci.cls + '"><span class="dot"></span>' + esc(ci.state) + '</span>' + trendDots(r);
     var tip = '最近一次运行：' + (ci.workflow || '未知工作流') + (ci.ref ? '（' + ci.ref + '）' : '') + (ci.ranAt ? ' · ' + fullTime(ci.ranAt) : '');
     var sub = [ci.workflow, ci.ref ? '@' + ci.ref : '', ci.ranAt ? relTime(ci.ranAt) : ''].filter(Boolean).join(' · ');
-    return '<a class="badge ' + ci.cls + '" href="' + esc(ci.url) + '" target="_blank" rel="noopener" title="' + esc(tip) + '"><span class="dot"></span>' + esc(ci.state) + '</a><div class="sub">' + esc(sub) + '</div>';
+    return '<a class="badge ' + ci.cls + '" href="' + esc(ci.url) + '" target="_blank" rel="noopener" title="' + esc(tip) + '"><span class="dot"></span>' + esc(ci.state) + '</a><div class="sub">' + esc(sub) + '</div>' + trendDots(r);
   }
 
   function rowHtml(r) {
@@ -301,10 +412,20 @@ window.__SCAN_DATA__ = {"owner":"ReSerendipity","avatarUrl":"https://avatars.git
       metric(t.openIssues + '<span class="vsub"> +' + t.openPRs + ' PR</span>', '开放 Issue') +
       metric(t.releases, '发布合计') +
       metric(t.ciOk + '<span class="vsub">/' + t.ciDone + '</span>', 'CI 通过 / 有记录');
-    var rows = currentRows();
+
+    rebuildLangOptions();
+
+    var rows = visibleRows();
     document.getElementById('tbody').innerHTML = rows.length
       ? rows.map(rowHtml).join('')
-      : '<tr><td class="empty" colspan="10">没有数据</td></tr>';
+      : '<tr><td class="empty" colspan="10">没有匹配的仓库 —— 试试清空搜索或放宽筛选条件</td></tr>';
+
+    var extra = [];
+    if (d.rate && typeof d.rate.remaining === 'number') {
+      extra.push('GitHub API 余量 <strong>' + d.rate.remaining + '/' + d.rate.limit + '</strong>，' + esc(fullTime(new Date(d.rate.reset * 1000).toISOString())) + ' 重置');
+    }
+    if (d.truncated) extra.push('仓库超过 500 个，仅显示最近推送的前 500 个');
+    document.getElementById('footExtra').innerHTML = extra.length ? extra.join(' · ') : '';
   }
 
   /* ---------- 扫描更新 ---------- */
@@ -320,7 +441,7 @@ window.__SCAN_DATA__ = {"owner":"ReSerendipity","avatarUrl":"https://avatars.git
     var btn = document.getElementById('scanBtn');
     btn.classList.add('scanning');
     btn.querySelector('.lbl').textContent = '扫描中…';
-    setHint('正在通过 gh api 拉取数据（GraphQL + REST，约 20–40 秒）…');
+    setHint('正在通过 gh api 并行拉取数据（GraphQL 分页 + REST，约 5–15 秒）…');
     fetch('/api/scan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
       .then(function (r) {
         return r.json().catch(function () { return { ok: false, error: 'HTTP ' + r.status }; });
@@ -336,6 +457,8 @@ window.__SCAN_DATA__ = {"owner":"ReSerendipity","avatarUrl":"https://avatars.git
         var m = String((e && e.message) || e);
         if (/failed to fetch|networkerror|load failed|fetch failed/i.test(m)) {
           m = '未检测到本地服务：请在项目文件夹运行 node server.mjs 启动后重试（或用 node scan.mjs 命令行刷新静态快照）';
+        } else if (location.protocol.indexOf('http') === 0 && !/^(127\.0\.0\.1|localhost)$/.test(location.hostname)) {
+          m = '静态托管页面无法扫描（没有本地服务）：请在本地运行 node server.mjs 后使用，或直接浏览内嵌快照';
         }
         setHint('扫描失败：' + m, 'err');
       })
@@ -344,6 +467,17 @@ window.__SCAN_DATA__ = {"owner":"ReSerendipity","avatarUrl":"https://avatars.git
         btn.classList.remove('scanning');
         btn.querySelector('.lbl').textContent = '重新扫描';
       });
+  }
+
+  /* ---------- 自动刷新 ---------- */
+  function applyAuto(silent) {
+    var mins = parseInt(document.getElementById('auto').value, 10) || 0;
+    try { localStorage.setItem(AUTO_KEY, String(mins)); } catch (e) {}
+    if (autoTimer) { clearInterval(autoTimer); autoTimer = null; }
+    if (mins > 0) {
+      autoTimer = setInterval(function () { if (!state.scanning) doScan(); }, mins * 60000);
+      if (!silent) setHint('自动刷新已开启：每 ' + mins + ' 分钟扫描一次（每次消耗约 ' + '30–40 个 GitHub API 调用）', 'okc');
+    }
   }
 
   /* ---------- 启动 ---------- */
@@ -358,6 +492,22 @@ window.__SCAN_DATA__ = {"owner":"ReSerendipity","avatarUrl":"https://avatars.git
       var cur = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
       applyTheme(cur === 'dark' ? 'light' : 'dark');
     });
+
+    var qEl = document.getElementById('q');
+    qEl.addEventListener('input', function () { state.q = qEl.value.trim(); render(); });
+    var fl = document.getElementById('fLang');
+    fl.addEventListener('change', function () { state.fLang = fl.value; render(); });
+    var fs = document.getElementById('fStatus');
+    fs.addEventListener('change', function () { state.fStatus = fs.value; render(); });
+    var nf = document.getElementById('fNoFork');
+    nf.addEventListener('change', function () { state.noFork = nf.checked; render(); });
+    var au = document.getElementById('auto');
+    au.addEventListener('change', function () { applyAuto(false); });
+    var savedAuto = '0';
+    try { savedAuto = localStorage.getItem(AUTO_KEY) || '0'; } catch (e) {}
+    if (['10', '30', '60'].indexOf(savedAuto) >= 0) au.value = savedAuto;
+    applyAuto(true);
+
     var ths = document.querySelectorAll('th.sortable');
     for (var i = 0; i < ths.length; i++) {
       (function (th) {
@@ -369,12 +519,14 @@ window.__SCAN_DATA__ = {"owner":"ReSerendipity","avatarUrl":"https://avatars.git
             state.sortKey = k;
             state.sortDir = ASC_DEFAULT[k] ? 'asc' : 'desc';
           }
+          saveSort();
           updateArr();
           render();
         });
       })(ths[i]);
     }
 
+    loadSort();
     updateArr();
     var embedded = window.__SCAN_DATA__ || null;
     if (embedded) { state.data = embedded; render(); }
@@ -385,7 +537,7 @@ window.__SCAN_DATA__ = {"owner":"ReSerendipity","avatarUrl":"https://avatars.git
       .then(function (j) {
         if (j && j.ok && j.data && j.data.rows) { state.data = j.data; render(); }
       })
-      .catch(function () { /* file:// 直开时无服务，用内嵌快照 */ });
+      .catch(function () { /* file:// 或静态托管时无服务，用内嵌快照 */ });
   }
 
   boot();
