@@ -47,7 +47,7 @@
 
 - **排序、筛选、明暗切换**：纯浏览器 JS，零依赖，离线可用。
 - **扫描取数**：需要一个带凭据的 GitHub API 通道。当前实现复用本机 **gh CLI**（登录态存在系统 keyring，token 不落盘）；本地服务只是把 gh 的调用包成页面可点的按钮。
-- 不想装 gh 也可以改造：① 用 `GITHUB_TOKEN` 环境变量替代 gh；② 在页面里粘贴 Personal Access Token 直连 api.github.com（支持 CORS），代价是 token 要自己保管。需要哪种说一声即可改。
+- 不想装 gh：设 `GH_TOKEN`（或 `GITHUB_TOKEN`）环境变量即自动走 **token 直连兜底通道**（REST+GraphQL，gh 缺失或未登录时自动生效，2026-09-21 实现）；token 走环境变量、不落盘。
 
 前置：Node 18+；扫描功能需要 gh CLI 已登录（`gh auth login`）。
 

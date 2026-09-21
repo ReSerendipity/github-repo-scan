@@ -1,7 +1,7 @@
 // 冒烟测试：node --test
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { ciStateOf, relTime, fullTime, renderDashboard, scoreOf, gradeOf } from "../scan-core.mjs";
+import { ciStateOf, relTime, fullTime, renderDashboard, scoreOf, gradeOf, applyJq } from "../scan-core.mjs";
 
 test("ciStateOf：无运行记录", () => {
   const s = ciStateOf(null);
@@ -112,4 +112,10 @@ test("renderDashboard:健康分/流量/视图控件就位", () => {
   assert.ok(html.includes('data-key="traffic"'), "应有流量表头");
   assert.ok(html.includes('id="fView"'), "应有视图下拉");
   assert.ok(!html.includes('colspan="10"'), "列数扩展后不应残留 10 列占位");
+});
+
+test("applyJq:直连兜底的极简点路径", () => {
+  assert.equal(applyJq({ login: "x" }, ".login"), "x");
+  assert.deepEqual(applyJq({ resources: { core: { remaining: 5 } } }, ".resources.core"), { remaining: 5 });
+  assert.equal(applyJq({}, ".a.b"), undefined);
 });

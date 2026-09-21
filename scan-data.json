@@ -2,119 +2,26 @@
   "schema": 2,
   "owner": "ReSerendipity",
   "avatarUrl": "https://avatars.githubusercontent.com/u/259081123?s=96&u=8f95238d55cf3ad3e9d3fac10c5d2d6a937b2d4a&v=4",
-  "scannedAt": "2026-09-21T13:05:01.950Z",
+  "scannedAt": "2026-09-21T15:57:27.663Z",
   "truncated": false,
   "rate": {
     "limit": 5000,
     "remaining": 5000,
-    "reset": 1789999516,
+    "reset": 1790009862,
     "used": 0
   },
   "totals": {
-    "repos": 18,
-    "totalRepos": 18,
+    "repos": 19,
+    "totalRepos": 19,
     "stars": 24,
     "forks": 4,
     "openIssues": 5,
     "openPRs": 16,
     "releases": 37,
-    "ciDone": 11,
-    "ciOk": 9
+    "ciDone": 10,
+    "ciOk": 8
   },
   "rows": [
-    {
-      "name": "github-repo-scan",
-      "url": "https://github.com/ReSerendipity/github-repo-scan",
-      "description": "GitHub 账号仓库总览面板：CI / 许可证 / Release / Issue / 分支 / Star·Fork 一张表看完，双击即用 | Local dashboard scanning all your GitHub repos: CI, license, releases, issues, branches, stars - clickable links",
-      "visibility": "PUBLIC",
-      "isArchived": false,
-      "isFork": false,
-      "createdAt": "2026-09-21T12:56:10Z",
-      "pushedAt": "2026-09-21T12:56:15Z",
-      "stars": 0,
-      "forks": 0,
-      "openIssues": 0,
-      "openPRs": 0,
-      "branches": 1,
-      "defaultBranch": "main",
-      "license": null,
-      "licenseUrl": null,
-      "releases": 0,
-      "latestRelease": null,
-      "ci": {
-        "state": "无 CI 记录",
-        "cls": "none",
-        "workflow": null,
-        "ref": null,
-        "ranAt": null,
-        "url": null,
-        "trend": []
-      },
-      "language": "HTML",
-      "langColor": "#e34c26"
-    },
-    {
-      "name": "TTS_MultiModel",
-      "url": "https://github.com/ReSerendipity/TTS_MultiModel",
-      "description": "五引擎语音合成平台：VoxCPM2 / IndexTTS 2.5 / IndexTTS 2.0 / OpenVoice / Step-Audio-EditX，声音克隆、声音设计、多角色剧本配音、流式生成，中英日韩界面，Windows/Linux/Docker 一键部署 | Multi-engine TTS platform (5 engines) with voice cloning, voice design, multi-character dubbing & streaming, zh/en/ja/ko UI, one-click deploy",
-      "visibility": "PUBLIC",
-      "isArchived": false,
-      "isFork": false,
-      "createdAt": "2026-05-08T00:48:26Z",
-      "pushedAt": "2026-09-21T12:27:57Z",
-      "stars": 10,
-      "forks": 2,
-      "openIssues": 3,
-      "openPRs": 8,
-      "branches": 20,
-      "defaultBranch": "main",
-      "license": "Apache-2.0",
-      "licenseUrl": "https://github.com/ReSerendipity/TTS_MultiModel/blob/main/LICENSE",
-      "releases": 4,
-      "latestRelease": {
-        "tag": "v2.2.1",
-        "name": "v2.2.1",
-        "publishedAt": "2026-08-22T04:43:17Z",
-        "url": "https://github.com/ReSerendipity/TTS_MultiModel/releases/tag/v2.2.1"
-      },
-      "ci": {
-        "state": "通过",
-        "cls": "ok",
-        "workflow": "CI",
-        "ref": "ci/engine-import-and-indextts20-smoke",
-        "ranAt": "2026-09-21T12:28:03Z",
-        "url": "https://github.com/ReSerendipity/TTS_MultiModel/actions/runs/35599697733",
-        "trend": [
-          {
-            "s": "completed",
-            "c": "failure",
-            "at": "2026-09-21T12:28:02Z"
-          },
-          {
-            "s": "completed",
-            "c": "success",
-            "at": "2026-09-21T12:28:02Z"
-          },
-          {
-            "s": "completed",
-            "c": "success",
-            "at": "2026-09-21T12:28:02Z"
-          },
-          {
-            "s": "completed",
-            "c": "success",
-            "at": "2026-09-21T12:28:02Z"
-          },
-          {
-            "s": "completed",
-            "c": "success",
-            "at": "2026-09-21T12:28:03Z"
-          }
-        ]
-      },
-      "language": "Python",
-      "langColor": "#3572A5"
-    },
     {
       "name": "offer-landing-kit",
       "url": "https://github.com/ReSerendipity/offer-landing-kit",
@@ -123,24 +30,24 @@
       "isArchived": false,
       "isFork": false,
       "createdAt": "2026-09-21T11:26:15Z",
-      "pushedAt": "2026-09-21T12:11:50Z",
+      "pushedAt": "2026-09-21T15:55:21Z",
       "stars": 0,
       "forks": 0,
       "openIssues": 0,
       "openPRs": 0,
       "branches": 1,
       "defaultBranch": "main",
-      "license": null,
-      "licenseUrl": null,
+      "license": "MIT",
+      "licenseUrl": "https://github.com/ReSerendipity/offer-landing-kit/blob/main/LICENSE",
       "releases": 0,
       "latestRelease": null,
       "ci": {
-        "state": "通过",
-        "cls": "ok",
+        "state": "运行中",
+        "cls": "running",
         "workflow": "pages build and deployment",
         "ref": "main",
-        "ranAt": "2026-09-21T12:11:52Z",
-        "url": "https://github.com/ReSerendipity/offer-landing-kit/actions/runs/35598139299",
+        "ranAt": "2026-09-21T15:55:23Z",
+        "url": "https://github.com/ReSerendipity/offer-landing-kit/actions/runs/35622206247",
         "trend": [
           {
             "s": "completed",
@@ -156,11 +63,155 @@
             "s": "completed",
             "c": "success",
             "at": "2026-09-21T12:11:52Z"
+          },
+          {
+            "s": "in_progress",
+            "c": null,
+            "at": "2026-09-21T15:55:23Z"
           }
         ]
       },
       "language": "HTML",
-      "langColor": "#e34c26"
+      "langColor": "#e34c26",
+      "traffic": null
+    },
+    {
+      "name": "github-repo-scan",
+      "url": "https://github.com/ReSerendipity/github-repo-scan",
+      "description": "GitHub 账号仓库总览面板：CI / 许可证 / Release / Issue / 分支 / Star·Fork 一张表看完，双击即用 | Local dashboard scanning all your GitHub repos: CI, license, releases, issues, branches, stars - clickable links",
+      "visibility": "PUBLIC",
+      "isArchived": false,
+      "isFork": false,
+      "createdAt": "2026-09-21T12:56:10Z",
+      "pushedAt": "2026-09-21T15:55:18Z",
+      "stars": 0,
+      "forks": 0,
+      "openIssues": 0,
+      "openPRs": 0,
+      "branches": 1,
+      "defaultBranch": "main",
+      "license": "MIT",
+      "licenseUrl": "https://github.com/ReSerendipity/github-repo-scan/blob/main/LICENSE",
+      "releases": 0,
+      "latestRelease": null,
+      "ci": {
+        "state": "运行中",
+        "cls": "running",
+        "workflow": "pages build and deployment",
+        "ref": "main",
+        "ranAt": "2026-09-21T15:55:19Z",
+        "url": "https://github.com/ReSerendipity/github-repo-scan/actions/runs/35622200290",
+        "trend": [
+          {
+            "s": "completed",
+            "c": "success",
+            "at": "2026-09-21T13:06:34Z"
+          },
+          {
+            "s": "in_progress",
+            "c": null,
+            "at": "2026-09-21T15:55:19Z"
+          }
+        ]
+      },
+      "language": "JavaScript",
+      "langColor": "#f1e05a",
+      "traffic": null
+    },
+    {
+      "name": "TTS_MultiModel",
+      "url": "https://github.com/ReSerendipity/TTS_MultiModel",
+      "description": "五引擎语音合成平台：VoxCPM2 / IndexTTS 2.5 / IndexTTS 2.0 / OpenVoice / Step-Audio-EditX，声音克隆、声音设计、多角色剧本配音、流式生成，中英日韩界面，Windows/Linux/Docker 一键部署 | Multi-engine TTS platform (5 engines) with voice cloning, voice design, multi-character dubbing & streaming, zh/en/ja/ko UI, one-click deploy",
+      "visibility": "PUBLIC",
+      "isArchived": false,
+      "isFork": false,
+      "createdAt": "2026-05-08T00:48:26Z",
+      "pushedAt": "2026-09-21T15:35:55Z",
+      "stars": 10,
+      "forks": 2,
+      "openIssues": 3,
+      "openPRs": 8,
+      "branches": 25,
+      "defaultBranch": "main",
+      "license": "Apache-2.0",
+      "licenseUrl": "https://github.com/ReSerendipity/TTS_MultiModel/blob/main/LICENSE",
+      "releases": 4,
+      "latestRelease": {
+        "tag": "v2.2.1",
+        "name": "v2.2.1",
+        "publishedAt": "2026-08-22T04:43:17Z",
+        "url": "https://github.com/ReSerendipity/TTS_MultiModel/releases/tag/v2.2.1"
+      },
+      "ci": {
+        "state": "通过",
+        "cls": "ok",
+        "workflow": "CI",
+        "ref": "main",
+        "ranAt": "2026-09-21T15:35:59Z",
+        "url": "https://github.com/ReSerendipity/TTS_MultiModel/actions/runs/35620033133",
+        "trend": [
+          {
+            "s": "completed",
+            "c": "success",
+            "at": "2026-09-21T15:35:58Z"
+          },
+          {
+            "s": "in_progress",
+            "c": null,
+            "at": "2026-09-21T15:35:58Z"
+          },
+          {
+            "s": "in_progress",
+            "c": null,
+            "at": "2026-09-21T15:35:58Z"
+          },
+          {
+            "s": "completed",
+            "c": "success",
+            "at": "2026-09-21T15:35:58Z"
+          },
+          {
+            "s": "completed",
+            "c": "success",
+            "at": "2026-09-21T15:35:59Z"
+          }
+        ]
+      },
+      "language": "Python",
+      "langColor": "#3572A5",
+      "traffic": null
+    },
+    {
+      "name": "hugging-face",
+      "url": "https://github.com/ReSerendipity/hugging-face",
+      "description": "Hugging Face 模型批量下载与台账管理工具链",
+      "visibility": "PRIVATE",
+      "isArchived": false,
+      "isFork": false,
+      "createdAt": "2026-09-21T15:32:20Z",
+      "pushedAt": "2026-09-21T15:32:27Z",
+      "stars": 0,
+      "forks": 0,
+      "openIssues": 0,
+      "openPRs": 0,
+      "branches": 1,
+      "defaultBranch": "main",
+      "license": null,
+      "licenseUrl": null,
+      "releases": 0,
+      "latestRelease": null,
+      "ci": {
+        "state": "无 CI 记录",
+        "cls": "none",
+        "workflow": null,
+        "ref": null,
+        "ranAt": null,
+        "url": null,
+        "trend": []
+      },
+      "language": "Python",
+      "langColor": "#3572A5",
+      "traffic": null
     },
     {
       "name": "health-info-card",
@@ -170,12 +221,12 @@
       "isArchived": false,
       "isFork": false,
       "createdAt": "2026-09-21T07:48:21Z",
-      "pushedAt": "2026-09-21T07:48:28Z",
+      "pushedAt": "2026-09-21T13:19:31Z",
       "stars": 0,
       "forks": 0,
       "openIssues": 0,
       "openPRs": 0,
-      "branches": 1,
+      "branches": 3,
       "defaultBranch": "health-info-official",
       "license": "MIT",
       "licenseUrl": "https://github.com/ReSerendipity/health-info-card/blob/health-info-official/LICENSE",
@@ -191,7 +242,8 @@
         "trend": []
       },
       "language": "C",
-      "langColor": "#555555"
+      "langColor": "#555555",
+      "traffic": null
     },
     {
       "name": "SeedVR2-lite",
@@ -253,7 +305,8 @@
         ]
       },
       "language": "Python",
-      "langColor": "#3572A5"
+      "langColor": "#3572A5",
+      "traffic": null
     },
     {
       "name": "DraftPeek",
@@ -277,16 +330,11 @@
       "ci": {
         "state": "通过",
         "cls": "ok",
-        "workflow": "Stale 自动清理",
+        "workflow": "Main Verify",
         "ref": "main",
-        "ranAt": "2026-09-21T08:23:19Z",
-        "url": "https://github.com/ReSerendipity/DraftPeek/actions/runs/35577631083",
+        "ranAt": "2026-09-21T13:43:29Z",
+        "url": "https://github.com/ReSerendipity/DraftPeek/actions/runs/35607442723",
         "trend": [
-          {
-            "s": "completed",
-            "c": "success",
-            "at": "2026-09-21T06:51:25Z"
-          },
           {
             "s": "completed",
             "c": "failure",
@@ -306,11 +354,17 @@
             "s": "completed",
             "c": "success",
             "at": "2026-09-21T08:23:19Z"
+          },
+          {
+            "s": "completed",
+            "c": "success",
+            "at": "2026-09-21T13:43:29Z"
           }
         ]
       },
       "language": "Kotlin",
-      "langColor": "#A97BFF"
+      "langColor": "#A97BFF",
+      "traffic": null
     },
     {
       "name": "SpiritPal",
@@ -372,7 +426,8 @@
         ]
       },
       "language": "TypeScript",
-      "langColor": "#3178c6"
+      "langColor": "#3178c6",
+      "traffic": null
     },
     {
       "name": "MiniMax-H3-lite",
@@ -434,7 +489,8 @@
         ]
       },
       "language": "Python",
-      "langColor": "#3572A5"
+      "langColor": "#3572A5",
+      "traffic": null
     },
     {
       "name": "Image_MultiModel",
@@ -496,7 +552,8 @@
         ]
       },
       "language": "Python",
-      "langColor": "#3572A5"
+      "langColor": "#3572A5",
+      "traffic": null
     },
     {
       "name": ".github",
@@ -527,7 +584,8 @@
         "trend": []
       },
       "language": null,
-      "langColor": "#8b949e"
+      "langColor": "#8b949e",
+      "traffic": null
     },
     {
       "name": "Lineart_Painter",
@@ -574,7 +632,8 @@
         ]
       },
       "language": "Python",
-      "langColor": "#3572A5"
+      "langColor": "#3572A5",
+      "traffic": null
     },
     {
       "name": "Card-Studio",
@@ -636,7 +695,8 @@
         ]
       },
       "language": "JavaScript",
-      "langColor": "#f1e05a"
+      "langColor": "#f1e05a",
+      "traffic": null
     },
     {
       "name": "ReSerendipity",
@@ -667,7 +727,8 @@
         "trend": []
       },
       "language": null,
-      "langColor": "#8b949e"
+      "langColor": "#8b949e",
+      "traffic": null
     },
     {
       "name": "RTX_VSR-lite",
@@ -698,7 +759,8 @@
         "trend": []
       },
       "language": "Python",
-      "langColor": "#3572A5"
+      "langColor": "#3572A5",
+      "traffic": null
     },
     {
       "name": "Multi-Tracker",
@@ -729,7 +791,8 @@
         "trend": []
       },
       "language": "Python",
-      "langColor": "#3572A5"
+      "langColor": "#3572A5",
+      "traffic": null
     },
     {
       "name": "Unfading-Wall",
@@ -786,7 +849,8 @@
         ]
       },
       "language": "JavaScript",
-      "langColor": "#f1e05a"
+      "langColor": "#f1e05a",
+      "traffic": null
     },
     {
       "name": "ComfyUI-BatchPromptLoader",
@@ -823,7 +887,8 @@
         ]
       },
       "language": "Python",
-      "langColor": "#3572A5"
+      "langColor": "#3572A5",
+      "traffic": null
     },
     {
       "name": "ComfyUI-Manager",
@@ -854,7 +919,8 @@
         "trend": []
       },
       "language": "Python",
-      "langColor": "#3572A5"
+      "langColor": "#3572A5",
+      "traffic": null
     }
   ]
 }

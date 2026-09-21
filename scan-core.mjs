@@ -35,6 +35,81 @@ export function gh(args, retries = 3) {
   }
 }
 
+/* ---------------- GH_TOKEN 直连兜底(兜底矩阵:gh CLI → token 直连) ---------------- */
+function ghToken() {
+  return process.env.GH_TOKEN || process.env.GITHUB_TOKEN || "";
+}
+function canDirectFallback(e, msg) {
+  if (!ghToken()) return false;
+  return e?.code === "ENOENT" || /command not found|not recognized|不是内部或外部命令|gh auth login|not logged/i.test(msg);
+}
+/* 极简 jq 子集:仅支持 .a.b.c 点路径(覆盖本工具全部 --jq 用法) */
+export function applyJq(data, expr) {
+  if (!/^\.[A-Za-z0-9_.]*$/.test(expr)) throw new Error("GH_TOKEN 兜底通道不支持该 --jq 表达式:" + expr);
+  let v = data;
+  for (const k of expr.slice(1).split(".")) { if (v == null) break; v = v[k]; }
+  return v;
+}
+export async function directApi(args) {
+  const headers = { "User-Agent": "github-repo-scan", Authorization: "Bearer " + ghToken(), Accept: "application/vnd.github+json" };
+  if (args[0] !== "api") throw new Error("GH_TOKEN 兜底通道仅支持 api 调用");
+  if (args[1] === "graphql") {
+    const body = {};
+    for (let i = 2; i < args.length; i++) {
+      if (args[i] === "-f" || args[i] === "-F") {
+        const eq = String(args[i + 1] ?? "").indexOf("=");
+        if (eq > 0) body[args[i + 1].slice(0, eq)] = args[i + 1].slice(eq + 1);
+        i++;
+      }
+    }
+    const r = await httpsJson("https://api.github.com/graphql", { method: "POST", headers, body: JSON.stringify(body) });
+    if (r.status >= 300) throw new Error("GraphQL 直连响应异常(HTTP " + r.status + ")");
+    try { return JSON.stringify(JSON.parse(r.text)); }
+    catch (e) { throw new Error("GraphQL 直连响应异常(HTTP " + r.status + ")"); }
+  }
+  const restPath = String(args[1]).replace(/^\//, "");
+  let jq = null;
+  for (let i = 2; i < args.length; i++) {
+    if (args[i] === "--jq") { jq = args[i + 1]; i++; }
+  }
+  const r = await httpsJson("https://api.github.com/" + restPath, { headers });
+  if (r.status >= 300) throw new Error("GitHub API HTTP " + r.status + "(GH_TOKEN 直连)");
+  let data = null;
+  try { data = JSON.parse(r.text); } catch (e) { data = r.text; }
+  if (jq != null) {
+    const v = applyJq(data, jq);
+    return typeof v === "string" ? v : JSON.stringify(v);
+  }
+  return typeof data === "string" ? data : JSON.stringify(data);
+}
+
+/* 直连传输层:严格 TLS 优先;本机代理会拦截证书链(gh CLI 走系统信任库所以无感,Node 不认),
+   此时仅对 api.github.com 放宽校验重试一次。 */
+function httpsJson(url, { method = "GET", headers, body } = {}) {
+  return new Promise((resolve, reject) => {
+    const attempt = (strict) => {
+      const agent = new https.Agent({ rejectUnauthorized: strict, keepAlive: false });
+      const req = https.request(url, { method, headers, agent, timeout: 25000 }, (res) => {
+        let data = "";
+        res.on("data", (c) => (data += c));
+        res.on("end", () => resolve({ status: res.statusCode, text: data }));
+      });
+      req.on("error", (e) => {
+        const msg = String((e && e.message) || e) + " " + String((e && e.cause && e.cause.message) || "");
+        if (strict && /UNABLE_TO_VERIFY|SELF_SIGNED|DEPTH_ZERO|CERT/i.test(msg)) {
+          console.log("  ? TLS 证书校验失败（本机代理所致），放宽校验重试一次（仅限 api.github.com）");
+          return attempt(false);
+        }
+        reject(e);
+      });
+      req.on("timeout", () => { req.destroy(); reject(new Error("timeout")); });
+      req.end(body || undefined);
+    };
+    attempt(true);
+  });
+}
+
+
 export async function ghAsync(args, retries = 3) {
   for (let attempt = 0; ; attempt++) {
     try {
@@ -48,6 +123,15 @@ export async function ghAsync(args, retries = 3) {
         console.log("  ↻ GitHub API 暂时不可用，" + Math.round(waitMs / 1000) + " 秒后重试（第 " + (attempt + 1) + "/" + retries + " 次）…");
         await sleep(waitMs);
         continue;
+      }
+      if (canDirectFallback(e, msg)) {
+        try {
+          const out = await directApi(args);
+          console.log("  ? gh CLI 不可用，已用 GH_TOKEN 直连兜底通道完成本次调用");
+          return out;
+        } catch (e2) {
+          console.log("  ? GH_TOKEN 直连兜底失败：" + e2.message);
+        }
       }
       throw e;
     }
@@ -177,7 +261,7 @@ const QUERY_PAGE = /* GraphQL */ `
 
 /* ---------------- 数据采集（分页 + 并行 + 增量） ---------------- */
 export async function collectData(ownerArg) {
-  const owner = ownerArg || gh(["api", "user", "--jq", ".login"]);
+  const owner = ownerArg || (await ghAsync(["api", "user", "--jq", ".login"]));
   console.log("▸ 账号：" + owner);
 
   // 1. GraphQL 分页拉仓库（每页 100，最多 5 页 = 500 个）
@@ -190,7 +274,7 @@ export async function collectData(ownerArg) {
   for (let page = 0; page < 5; page++) {
     const ghArgs = ["api", "graphql", "-f", "query=" + QUERY_PAGE, "-F", "owner=" + owner];
     if (cursor) ghArgs.push("-F", "cursor=" + cursor);
-    const res = JSON.parse(gh(ghArgs));
+    const res = JSON.parse(await ghAsync(ghArgs));
     if (res.errors?.length) throw new Error("GraphQL 错误：" + res.errors.map((e) => e.message).join("; "));
     const user = res.data?.user;
     if (!user) throw new Error("找不到账号 " + owner + "（本工具面向个人账号，组织账号需改用 organization 查询）");
@@ -284,7 +368,7 @@ export async function collectData(ownerArg) {
   // 4. API 配额（rate_limit 接口本身不消耗配额）
   let rate = null;
   try {
-    rate = JSON.parse(gh(["api", "rate_limit", "--jq", ".resources.core"]));
+    rate = JSON.parse(await ghAsync(["api", "rate_limit", "--jq", ".resources.core"]));
   } catch { /* 拿不到就隐藏展示 */ }
 
   const totals = {
