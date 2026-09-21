@@ -1,7 +1,7 @@
 // 冒烟测试：node --test
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { ciStateOf, relTime, fullTime, renderDashboard } from "../scan-core.mjs";
+import { ciStateOf, relTime, fullTime, renderDashboard, scoreOf, gradeOf } from "../scan-core.mjs";
 
 test("ciStateOf：无运行记录", () => {
   const s = ciStateOf(null);
@@ -82,4 +82,34 @@ test("renderDashboard：内嵌数据、XSS 转义、浅色默认", () => {
   // 配额/截断展示为客户端渲染：验证容器与内嵌配额数据
   assert.ok(html.includes('id="footExtra"'), "应有配额/截断展示容器");
   assert.ok(html.includes('"remaining":4999'), "内嵌数据应包含 API 配额");
+});
+
+test("scoreOf:健康分构成与归档折扣", () => {
+  const now = Date.now();
+  const healthy = {
+    pushedAt: new Date(now - 2 * 86400000).toISOString(),
+    openIssues: 0,
+    releases: 3,
+    latestRelease: { publishedAt: new Date(now - 10 * 86400000).toISOString() },
+    ci: { cls: "ok", trend: [{ c: "success" }, { c: "success" }, { c: "success" }] },
+  };
+  assert.equal(scoreOf(healthy), 100);
+  assert.deepEqual(gradeOf(100), { g: "A", cls: "ok" });
+  assert.deepEqual(gradeOf(72), { g: "B", cls: "info" });
+  assert.deepEqual(gradeOf(55), { g: "C", cls: "warn" });
+  assert.deepEqual(gradeOf(30), { g: "D", cls: "fail" });
+  const dead = { pushedAt: new Date(now - 400 * 86400000).toISOString(), openIssues: 40, releases: 0, latestRelease: null, ci: { cls: "fail", trend: [] } };
+  const deadScore = scoreOf(dead);
+  assert.ok(deadScore < 30);
+  assert.equal(scoreOf({ ...dead, isArchived: true }), Math.round(deadScore * 0.7), "归档仓应打七折");
+});
+
+test("renderDashboard:健康分/流量/视图控件就位", () => {
+  const data = { schema: 2, owner: "demo", avatarUrl: "", scannedAt: "2026-09-21T00:00:00Z", truncated: false, rate: null,
+    totals: { repos: 0, totalRepos: 0, stars: 0, forks: 0, openIssues: 0, openPRs: 0, releases: 0, ciDone: 0, ciOk: 0 }, rows: [] };
+  const html = renderDashboard(data);
+  assert.ok(html.includes('data-key="score"'), "应有健康分表头");
+  assert.ok(html.includes('data-key="traffic"'), "应有流量表头");
+  assert.ok(html.includes('id="fView"'), "应有视图下拉");
+  assert.ok(!html.includes('colspan="10"'), "列数扩展后不应残留 10 列占位");
 });

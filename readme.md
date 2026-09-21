@@ -1,6 +1,6 @@
 # GitHub 仓库扫描总览（github-repo-scan）
 
-把 GitHub 账号名下所有仓库的情况（CI / 许可证 / Release / Issue / 分支 / Star·Fork）拉成本地总览面板，每个单元格都带 GitHub 跳转链接。
+把 GitHub 账号名下所有仓库的情况（CI / 许可证 / Release / Issue / 分支 / Star·Fork / 健康分 / 可选 14 天流量）拉成本地总览面板，每个单元格都带 GitHub 跳转链接。
 
 远程仓库：<https://github.com/ReSerendipity/github-repo-scan>
 
@@ -22,7 +22,10 @@
 | 扫描更新 | 页面右上角「重新扫描」→ 本地服务 → gh CLI → GitHub API；完成后表格原地刷新，同时把 dashboard.html 与 scan-data.json 写回磁盘 |
 | 自动刷新 | 工具栏可选每 10 / 30 / 60 分钟自动扫描一次，选择会记住 |
 | 明暗切换 | 右上角主题按钮（默认浅色；GitHub 亮 / 暗两套配色），切换后选择记忆在浏览器 localStorage |
-| 排序 | 全部表头可点击：仓库 / CI 状态 / 许可证 / Release / Issue / 分支 / Star / Fork / 语言 / 最近推送；再点一次切换升降序，空值恒沉底，排序选择会记住 |
+| 排序 | 全部表头可点击：仓库 / 健康 / CI 状态 / 许可证 / Release / Issue / 分支 / Star / Fork / 语言 / 流量 / 最近推送；再点一次切换升降序，空值恒沉底，排序选择会记住 |
+| 健康评分 | 每仓 0-100 分：CI 40 + 新鲜度 30 + Issue 卫生 15 + 发布节奏 15（归档仓打七折），A/B/C/D 四档，悬停看构成 |
+| 自定义视图 | 「＋存视图」把当前搜索/筛选/排序存成命名视图，下拉一键切换，保存在浏览器 localStorage |
+| 流量（14天） | 设环境变量 `SCAN_WITH_TRAFFIC=1` 后重新扫描，展示近 14 天浏览量与克隆数（每仓多 2 次 API 调用，需 push 权限） |
 | 筛选与搜索 | 按仓库名/描述搜索、按语言筛选、按状态筛选（CI 通过/失败/运行中/无 CI/有 Issue/未声明许可证）、一键隐藏 fork |
 | CI 趋势 | 每仓展示最近 5 次 Actions 运行的点阵（绿=通过、红=失败、黄=运行中），悬停看时间与结论 |
 | API 配额 | 页脚实时显示 GitHub API 剩余额度与重置时间 |
