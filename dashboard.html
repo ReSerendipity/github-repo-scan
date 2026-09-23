@@ -186,6 +186,9 @@
   .lang-row .rk { color: var(--accent); font-weight: 700; margin-right: 6px; }
   .lang-row a.nm { color: var(--text1); font-weight: 600; text-decoration: none; }
   .lang-row a.nm:hover { color: var(--accent); text-decoration: underline; }
+  .rank-metric { background: var(--bg); border: 1px solid var(--border); color: var(--text2); border-radius: 999px; padding: 2px 10px; font-size: 12px; cursor: pointer; font-family: inherit; margin-left: 4px; }
+  .rank-metric:hover { border-color: var(--accent); color: var(--accent); }
+  .rank-metric.on { border-color: var(--accent); color: var(--accent); font-weight: 700; }
 </style>
 </head>
 <body>
@@ -210,6 +213,7 @@
   <div class="alert-box" id="alertBox"></div>
   <div class="lang-box" id="langBox"></div>
   <div class="lang-box" id="rankBox"></div>
+  <div class="lang-box" id="archivedBox"></div>
 
   <div class="toolbar">
     <input id="q" type="search" placeholder="搜索仓库名 / 描述…">
@@ -310,7 +314,7 @@ window.__SCAN_DATA__ = {"schema":3,"owner":"ReSerendipity","avatarUrl":"https://
   var THEME_KEY = 'grs-theme';
   var AUTO_KEY = 'grs-auto';
   var SORT_KEY = 'grs-sort';
-  var state = { data: null, sortKey: 'pushedAt', sortDir: 'desc', scanning: false, q: '', fLang: '', fStatus: '', noFork: false, noArchived: false, mode: 'both', expanded: {} };
+  var state = { data: null, sortKey: 'pushedAt', sortDir: 'desc', scanning: false, q: '', fLang: '', fStatus: '', noFork: false, noArchived: false, mode: 'both', expanded: {}, rankMetric: 'stars' };
   var VIEWS_KEY = 'ghscan.views.v1';
   var MODE_KEY = 'grs-mode';
   var viewState = { views: {}, current: '' };
@@ -719,15 +723,32 @@ window.__SCAN_DATA__ = {"schema":3,"owner":"ReSerendipity","avatarUrl":"https://
     }).join('');
     document.getElementById('langBox').innerHTML = langHtml ? '<span class="lbl">语言分布（Top ' + langArr.length + '）：</span>' + langHtml : '';
 
-    // Star 排行榜：Top 5（条长按占比）
-    var starArr = d.rows.slice().sort(function (a, b) { return b.stars - a.stars; }).slice(0, 5);
-    var maxStar = starArr.length ? starArr[0].stars : 1;
-    var rankHtml = starArr.map(function (x, i) {
-      var pct = maxStar > 0 ? Math.round(x.stars / maxStar * 100) : 0;
-      return '<div class="lang-row"><div class="top"><span><span class="rk">#' + (i + 1) + '</span><a class="nm" href="' + esc(x.url) + '" target="_blank" rel="noopener">' + esc(x.name) + '</a></span><span class="ct">' + x.stars + ' ★</span></div>' +
+    // 排行榜（可切换指标）：Top 5
+    var rankMetrics = [
+      { key: 'stars', label: 'Star', get: function (r) { return r.stars || 0; }, unit: '★' },
+      { key: 'forks', label: 'Fork', get: function (r) { return r.forks || 0; }, unit: 'Fork' },
+      { key: 'issues', label: 'Issue', get: function (r) { return r.openIssues || 0; }, unit: 'Issue' },
+      { key: 'health', label: '健康分', get: function (r) { return scoreOf(r); }, unit: '分' },
+    ];
+    var rm = rankMetrics.filter(function (m) { return m.key === state.rankMetric; })[0] || rankMetrics[0];
+    var rankArr = d.rows.slice().sort(function (a, b) { return rm.get(b) - rm.get(a); }).slice(0, 5);
+    var maxRank = rankArr.length ? rm.get(rankArr[0]) : 1;
+    var toggles = rankMetrics.map(function (m) { return '<button class="rank-metric' + (m.key === rm.key ? ' on' : '') + '" data-metric="' + m.key + '" title="按 ' + m.label + ' 排行">' + m.label + '</button>'; }).join('');
+    var rankHtml = rankArr.map(function (x, i) {
+      var v = rm.get(x); var pct = maxRank > 0 ? Math.round(v / maxRank * 100) : 0;
+      var valTxt = (rm.key === 'stars' ? v + ' ' : '') + rm.unit;
+      return '<div class="lang-row"><div class="top"><span><span class="rk">#' + (i + 1) + '</span><a class="nm" href="' + esc(x.url) + '" target="_blank" rel="noopener">' + esc(x.name) + '</a></span><span class="ct">' + valTxt + '</span></div>' +
         '<div class="bar"><i style="width:' + pct + '%;background:var(--accent)"></i></div></div>';
     }).join('');
-    document.getElementById('rankBox').innerHTML = rankHtml ? '<span class="lbl">Star 排行 Top 5：</span>' + rankHtml : '';
+    document.getElementById('rankBox').innerHTML = rankArr.length ? '<span class="lbl">排行 Top5：</span>' + toggles + rankHtml : '';
+
+    // 归档仓库独立分区（不参与活跃度评比，仅汇总列出）
+    var archArr = d.rows.filter(function (r) { return r.isArchived; });
+    var archHtml = archArr.map(function (x) {
+      var s = scoreOf(x), g = gradeOf(s);
+      return '<div class="lang-row"><div class="top"><span><span class="rk">●</span><a class="nm" href="' + esc(x.url) + '" target="_blank" rel="noopener">' + esc(x.name) + '</a></span><span class="ct">' + s + ' · ' + g.g + '</span></div></div>';
+    }).join('');
+    document.getElementById('archivedBox').innerHTML = archHtml ? '<span class="lbl">归档仓库（' + archArr.length + '，不参与活跃度评比）：</span>' + archHtml : '';
 
     rebuildLangOptions();
 
@@ -986,6 +1007,13 @@ window.__SCAN_DATA__ = {"schema":3,"owner":"ReSerendipity","avatarUrl":"https://
         document.getElementById('fStatus').value = st;
         render();
         setHint('已按聚合视图筛选：' + chip.textContent.replace(/^[⚠s]+/, '').replace(/s+/g, ' ').trim(), 'okc');
+      }
+    });
+    document.getElementById('rankBox').addEventListener('click', function (e) {
+      var btn = e.target.closest ? e.target.closest('.rank-metric') : null;
+      if (btn && btn.getAttribute('data-metric')) {
+        state.rankMetric = btn.getAttribute('data-metric');
+        render();
       }
     });
     document.getElementById('tbody').addEventListener('click', function (e) {
