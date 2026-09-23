@@ -509,7 +509,24 @@ const QUERY_PAGE = /* GraphQL */ `
   }`;
 
 /* ---------------- 数据采集（分页 + 并行 + 增量） ---------------- */
+// 变更探测：判断某仓库相对上次快照是否「无变化」（listing 级字段全等，且 CI 不在运行中）
+// next 为本次 GraphQL 列表项归一化后的摘要；prevRow 为上次快照的行对象
+export function repoUnchanged(prevRow, next) {
+  if (!prevRow) return false;
+  return prevRow.pushedAt === next.pushedAt
+    && prevRow.stars === next.stars
+    && prevRow.forks === next.forks
+    && prevRow.openIssues === next.openIssues
+    && prevRow.openPRs === next.openPRs
+    && prevRow.branches === next.branches
+    && prevRow.releases === next.releases
+    && prevRow.isArchived === next.isArchived
+    && prevRow.visibility === next.visibility
+    && (!prevRow.ci || prevRow.ci.cls !== "running"); // CI 运行中的仓库需重查（可能刚出结果）
+}
+
 export async function collectData(ownerArg, opts = {}) {
+  const scanStart = Date.now();
   const owner = ownerArg || (await ghAsync(["api", "user", "--jq", ".login"]));
   console.log("▸ 账号：" + owner);
 
@@ -543,12 +560,59 @@ export async function collectData(ownerArg, opts = {}) {
   try { prev = JSON.parse(readFileSync(join(HERE, "scan-data.json"), "utf8")); } catch { /* 无快照则全量 */ }
   const prevByName = new Map(((prev && prev.rows) || []).map((r) => [r.name, r]));
 
-  // 3. 并行补齐每仓数据：许可证链接 + 最近 5 次 CI 运行（趋势）
-  console.log("▸ 并行拉取许可证与 CI 运行记录（并发 8）…");
+  // 3. 先探测变更，再决定是否深度拉取：
+  //    与上次快照逐仓比对 listing 级字段（pushedAt / star / fork / issue / PR / 分支 / 发布 / 可见性 / 归档 / CI 是否在跑）；
+  //    完全没变的仓库直接复用上次快照的明细（许可证链接 / CI 趋势 / 最近提交 / 流量），不发任何额外请求。
+  //    → 无变更时几乎零请求（秒级返回）；有变更时只深挖变更仓库，其余复用。
+  const forceFull = !!opts.full;
+  let reused = 0, deepScanned = 0;
+  console.log(forceFull ? "▸ 强制全量：并行拉取每仓明细（并发 8）…" : "▸ 变更探测后并行拉取明细（并发 8，仅变更仓库走网络）…");
   const rows = await pool(repos, 8, async (r) => {
+    const p = prevByName.get(r.name);
+    const next = {
+      pushedAt: r.pushedAt,
+      stars: r.stargazerCount,
+      forks: r.forkCount,
+      openIssues: r.issues?.totalCount ?? 0,
+      openPRs: r.pullRequests?.totalCount ?? 0,
+      branches: r.refs?.totalCount ?? 0,
+      releases: r.releases?.totalCount ?? 0,
+      isArchived: !!r.isArchived,
+      visibility: r.visibility,
+    };
+    const listingUnchanged = !forceFull && repoUnchanged(p, next);
+    if (listingUnchanged) {
+      reused++;
+      const lic0 = r.licenseInfo;
+      return {
+        ...p,
+        url: r.url,
+        description: r.description ?? "",
+        visibility: r.visibility,
+        isArchived: !!r.isArchived,
+        isFork: !!r.isFork,
+        createdAt: r.createdAt,
+        pushedAt: r.pushedAt,
+        stars: r.stargazerCount,
+        forks: r.forkCount,
+        size: r.size ?? 0,
+        openIssues: r.issues?.totalCount ?? 0,
+        openPRs: r.pullRequests?.totalCount ?? 0,
+        branches: r.refs?.totalCount ?? 0,
+        defaultBranch: r.defaultBranchRef?.name ?? "—",
+        license: lic0 ? (lic0.spdxId && lic0.spdxId !== "NOASSERTION" ? lic0.spdxId : lic0.name) : null,
+        licenseUrl: lic0 ? (p.licenseUrl ?? null) : null,
+        releases: r.releases?.totalCount ?? 0,
+        latestRelease: r.latestRelease
+          ? { tag: r.latestRelease.tagName, name: r.latestRelease.name, publishedAt: r.latestRelease.publishedAt, url: r.latestRelease.url }
+          : null,
+        language: r.primaryLanguage?.name ?? null,
+        langColor: LANG_COLORS[r.primaryLanguage?.name ?? ""] ?? "#8b949e",
+      };
+    }
+    deepScanned++;
     let licenseUrl = null;
     if (r.licenseInfo) {
-      const p = prevByName.get(r.name);
       if (p && p.pushedAt === r.pushedAt && p.licenseUrl) {
         licenseUrl = p.licenseUrl; // 增量复用
       } else {
@@ -653,7 +717,18 @@ export async function collectData(ownerArg, opts = {}) {
     sizeTotal: rows.reduce((a, r) => a + (r.size || 0), 0),
   };
 
-  const data = { schema: 3, owner: login, avatarUrl, scannedAt: new Date().toISOString(), truncated, rate, totals, rows };
+  const scanInfo = {
+    mode: forceFull ? "full" : (deepScanned === 0 ? "reuse" : "incremental"),
+    total: rows.length,
+    deepScanned,
+    reused,
+    full: forceFull,
+    durationMs: Date.now() - scanStart,
+  };
+  console.log("▸ 扫描结果：" + (scanInfo.mode === "reuse" ? "无变更，完全复用快照（0 次深度请求）"
+    : (scanInfo.mode === "full" ? "强制全量" : "增量") + " · 深度扫描 " + deepScanned + " 个 · 复用 " + reused + " 个")
+    + " · 用时 " + (scanInfo.durationMs / 1000).toFixed(1) + "s");
+  const data = { schema: 3, owner: login, avatarUrl, scannedAt: new Date().toISOString(), truncated, rate, totals, rows, scanInfo };
   for (const r of data.rows) r.local = null;
   if (opts.local !== false) {
     try {
@@ -739,6 +814,10 @@ export function writeOutputs(data, withHistory = false) {
 export function printSummary(data) {
   const t = data.totals;
   console.log("✔ 扫描完成：" + t.repos + " 个仓库 · ★ " + t.stars + " · Fork " + t.forks + " · 开放 Issue " + t.openIssues + "（另有 PR " + t.openPRs + "） · 发布 " + t.releases + " · CI 通过 " + t.ciOk + "/" + t.ciDone);
+  if (data.scanInfo) {
+    const si = data.scanInfo;
+    console.log("▸ 本次扫描：" + (si.mode === "reuse" ? "无变更·复用快照（0 次深度请求）" : (si.mode === "full" ? "强制全量" : "增量") + " · 深度 " + si.deepScanned + " 个 · 复用 " + si.reused + " 个") + " · " + (si.durationMs / 1000).toFixed(1) + "s");
+  }
   for (const r of data.rows) {
     console.log("   " + r.name.padEnd(24) + " CI:" + r.ci.state.padEnd(6) + " 许可:" + (r.license ?? "未声明").padEnd(12) + " Release:" + (r.latestRelease ? r.latestRelease.tag : "—").padEnd(14) + " 分支:" + r.defaultBranch + "/" + r.branches + "  ★" + r.stars);
   }
@@ -765,6 +844,7 @@ export function renderDashboard(data) {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
 <title>GitHub 仓库总览</title>
 <style>
   :root, :root[data-theme="dark"] {
@@ -964,11 +1044,11 @@ export function renderDashboard(data) {
   .agg-wrap .alert-box, .agg-wrap .lang-box { border: none; background: transparent; padding: 0; margin: 0 0 12px; }
   .agg-wrap .metrics { margin-bottom: 12px; }
 
-  /* Star 周增长趋势（红涨绿跌，遵循 A 股惯例） */
-  .trend { font-weight: 700; font-size: 12px; white-space: nowrap; }
-  .trend.up { color: var(--fail); }
-  .trend.down { color: var(--ok); }
-  .trend.flat { color: var(--muted); }
+  /* Star 周增长趋势（红涨绿跌，遵循 A 股惯例；类名用 swtrend，避免与 CI 趋势点阵的 .trend 冲突） */
+  .swtrend { font-weight: 700; font-size: 12px; white-space: nowrap; }
+  .swtrend.up { color: var(--fail); }
+  .swtrend.down { color: var(--ok); }
+  .swtrend.flat { color: var(--muted); }
 </style>
 </head>
 <body>
@@ -980,7 +1060,7 @@ export function renderDashboard(data) {
       <div class="scan-meta" id="scanMeta">正在载入数据…</div>
     </div>
     <div class="controls">
-      <button id="scanBtn" class="btn primary" type="button" title="重新扫描并刷新本页数据（远程 + 本地对照；需本地服务已启动：node server.mjs）"><span class="ico"></span><span class="lbl">重新扫描</span></button>
+      <button id="scanBtn" class="btn primary" type="button" title="先探测仓库有无变更，只对变更仓库深度扫描（无变更秒级返回）；按住 Shift 点击 = 强制全量扫描。需本地服务已启动：node server.mjs"><span class="ico"></span><span class="lbl">重新扫描</span></button>
       <button id="scanLocalBtn" class="btn" type="button" title="只扫描本机 Git 仓库并对照/列出（不访问 GitHub，需本地服务）"><span class="ico2"></span><span class="lbl">仅扫本地</span></button>
       <button id="csvBtn" class="btn" type="button" title="导出当前筛选/排序结果为 CSV（Excel 可直接打开，带 UTF-8 BOM）">导出 CSV</button>
       <button id="cloneBtn" class="btn" type="button" title="复制当前可见仓库的 git clone 命令到剪贴板">复制 clone</button>
@@ -1169,6 +1249,15 @@ window.__SCAN_DATA__ = ${jsonStr};
     if (score >= 70) return { g: 'B', cls: 'info' };
     if (score >= 50) return { g: 'C', cls: 'warn' };
     return { g: 'D', cls: 'fail' };
+  }
+
+  // 仓库大小格式化（与模块级 fmtSize 语义一致；客户端脚本拿不到模块作用域，须自带一份）
+  function fmtSize(kb) {
+    if (!kb) return '—';
+    if (kb < 1024) return kb + ' KB';
+    var mb = kb / 1024;
+    if (mb < 1024) return mb.toFixed(1) + ' MB';
+    return (mb / 1024).toFixed(2) + ' GB';
   }
 
   /* ---------- 排序 ---------- */
@@ -1409,6 +1498,17 @@ window.__SCAN_DATA__ = ${jsonStr};
     box.innerHTML = '<div class="panel-title">' + esc(label) + '</div><div class="local-scroll"><table class="local-table"><thead><tr><th>仓库</th><th>本地路径</th><th>分支</th><th>工作区状态</th><th>最近提交</th><th>远程</th></tr></thead><tbody>' + repos.map(localRowHtml).join('') + '</tbody></table></div>';
   }
 
+  function starWeekCell(r) {
+    if (r.starWeek == null) {
+      var tip = (state.data && state.data.starWeekRef) ? '近 7 天无 Star 变化' : '暂无足够历史（需 ≥6 天扫描记录）';
+      return '<span class="muted" title="' + esc(tip) + '">—</span>';
+    }
+    var n = r.starWeek;
+    var cls = n > 0 ? 'up' : (n < 0 ? 'down' : 'flat');
+    var arrow = n > 0 ? '▲' : (n < 0 ? '▼' : '■');
+    return '<span class="swtrend ' + cls + '" title="近 7 天 Star 变化（对比 ' + esc(fullTime(state.data && state.data.starWeekRef)) + ' 快照）">' + arrow + ' ' + (n > 0 ? '+' : '') + n + '</span>';
+  }
+
   function rowHtml(r) {
     var tags =
       (r.visibility && r.visibility !== 'PUBLIC' ? '<span class="tag warn">私有</span>' : '') +
@@ -1462,6 +1562,10 @@ window.__SCAN_DATA__ = ${jsonStr};
     document.getElementById('title').textContent = d.owner + ' · GitHub 仓库总览';
     var hasLocal = !!(d.localScan);
     var meta = '扫描时间 ' + fullTime(d.scannedAt) + ' · 共 ' + d.totals.repos + ' 个仓库（账号名下 ' + d.totals.totalRepos + ' 个） · 数据源 gh api（GraphQL + REST）';
+    if (d.scanInfo) {
+      var si = d.scanInfo;
+      meta += ' · 本次' + (si.mode === 'reuse' ? '无变更·复用快照' : (si.mode === 'full' ? '强制全量' : '增量扫描 ' + si.deepScanned + '/' + si.total)) + ' · ' + ((si.durationMs || 0) / 1000).toFixed(1) + 's';
+    }
     if (hasLocal) meta += ' · 本地对照 ' + d.localScan.count + ' 仓（' + fullTime(d.localScan.scannedAt) + '）';
     document.getElementById('scanMeta').textContent = meta;
     var t = d.totals;
@@ -1538,7 +1642,7 @@ window.__SCAN_DATA__ = ${jsonStr};
       var v = rm.get(x); var pct = maxRank > 0 ? Math.round(v / maxRank * 100) : 0;
       var valTxt = (rm.key === 'stars' ? v + ' ' : '') + rm.unit;
       if (rm.key === 'stars' && x.starWeek != null) {
-        valTxt += ' <span class="trend ' + (x.starWeek > 0 ? 'up' : (x.starWeek < 0 ? 'down' : 'flat')) + '" title="近 7 天 Star 变化">' + (x.starWeek > 0 ? '+' : '') + x.starWeek + '/周</span>';
+        valTxt += ' <span class="swtrend ' + (x.starWeek > 0 ? 'up' : (x.starWeek < 0 ? 'down' : 'flat')) + '" title="近 7 天 Star 变化">' + (x.starWeek > 0 ? '+' : '') + x.starWeek + '/周</span>';
       }
       return '<div class="lang-row"><div class="top"><span><span class="rk">#' + (i + 1) + '</span><a class="nm" href="' + esc(x.url) + '" target="_blank" rel="noopener">' + esc(x.name) + '</a></span><span class="ct">' + valTxt + '</span></div>' +
         '<div class="bar"><i style="width:' + pct + '%;background:var(--accent)"></i></div></div>';
@@ -1579,14 +1683,15 @@ window.__SCAN_DATA__ = ${jsonStr};
     h.className = 'hint' + (cls ? ' ' + cls : '');
   }
 
-  function doScan() {
+  function doScan(e) {
     if (state.scanning) return;
+    var full = !!(e && e.shiftKey);
     state.scanning = true;
     var btn = document.getElementById('scanBtn');
     btn.classList.add('scanning');
     btn.querySelector('.lbl').textContent = '扫描中…';
-    setHint('正在通过 gh api 并行拉取数据（GraphQL 分页 + REST，约 5–15 秒）…');
-    fetch('/api/scan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+    setHint(full ? '强制全量扫描：逐仓拉取许可证 / CI / 最近提交（约 5–15 秒）…' : '先探测仓库有无变更，只对变更仓库深度扫描（无变更会秒级返回）…');
+    fetch('/api/scan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ full: full }) })
       .then(function (r) {
         return r.json().catch(function () { return { ok: false, error: 'HTTP ' + r.status }; });
       })
@@ -1595,7 +1700,9 @@ window.__SCAN_DATA__ = ${jsonStr};
         state.data = j.data;
         updateArr();
         render();
-        setHint('已更新：' + fullTime(state.data.scannedAt) + ' · dashboard.html 与 scan-data.json 已同步写入磁盘', 'okc');
+        var si = state.data.scanInfo || {};
+        var tag = si.mode === 'reuse' ? '无变更·复用快照' : (si.mode === 'full' ? '强制全量' : '增量扫描 ' + si.deepScanned + '/' + si.total);
+        setHint('已更新：' + fullTime(state.data.scannedAt) + ' · ' + tag + ' · ' + ((si.durationMs || 0) / 1000).toFixed(1) + 's · dashboard.html 与 scan-data.json 已同步写入磁盘', 'okc');
       })
       .catch(function (e) {
         var m = String((e && e.message) || e);
@@ -1696,7 +1803,7 @@ window.__SCAN_DATA__ = ${jsonStr};
   /* ---------- 导出 CSV（当前筛选/排序结果） ---------- */
   function csvCell(v) {
     var s = v == null ? '' : String(v);
-    if (/[",\n\r]/.test(s)) s = '"' + s.replace(/"/g, '""') + '"';
+    if (/[",\\n\\r]/.test(s)) s = '"' + s.replace(/"/g, '""') + '"';
     return s;
   }
   function exportCsv() {
@@ -1718,7 +1825,7 @@ window.__SCAN_DATA__ = ${jsonStr};
         r.lastCommit ? r.lastCommit.fileCount : '', relTime(r.pushedAt), r.url,
       ].map(csvCell).join(','));
     }
-    var csv = '﻿' + lines.join('\r\n');
+    var csv = '﻿' + lines.join('\\r\\n');
     var blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
     var a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -1731,7 +1838,7 @@ window.__SCAN_DATA__ = ${jsonStr};
   function copyClones() {
     var rows = visibleRows();
     if (!rows.length) { setHint('当前没有可见仓库可复制', 'err'); return; }
-    var text = rows.map(function (r) { return 'git clone ' + r.url; }).join('\n');
+    var text = rows.map(function (r) { return 'git clone ' + r.url; }).join('\\n');
     function done() { setHint('已复制 ' + rows.length + ' 条 git clone 命令到剪贴板', 'okc'); }
     function fb() {
       try {
@@ -1806,7 +1913,7 @@ window.__SCAN_DATA__ = ${jsonStr};
         state.fStatus = st;
         document.getElementById('fStatus').value = st;
         render();
-        setHint('已按聚合视图筛选：' + chip.textContent.replace(/^[⚠\s]+/, '').replace(/\s+/g, ' ').trim(), 'okc');
+        setHint('已按聚合视图筛选：' + chip.textContent.replace(/^[⚠\\s]+/, '').replace(/\\s+/g, ' ').trim(), 'okc');
       }
     });
     document.getElementById('rankBox').addEventListener('click', function (e) {
@@ -1903,6 +2010,36 @@ window.__SCAN_DATA__ = ${jsonStr};
         if (j && j.ok && j.data && j.data.rows) { state.data = j.data; render(); }
       })
       .catch(function () { /* file:// 或静态托管时无服务，用内嵌快照 */ });
+
+    // 轮询服务状态：启动时的后台自动扫描完成后自动刷新（页面本身立即可用，无需等待扫描）
+    var lastScannedAt = (state.data && state.data.scannedAt) || null;
+    var wasScanning = false;
+    function pollStatus() {
+      fetch('/api/status')
+        .then(function (r) { return r.json(); })
+        .then(function (j) {
+          if (!j || !j.ok || !j.status) return;
+          if (j.status.scanning) {
+            wasScanning = true;
+            setHint('后台正在扫描（' + (j.status.mode || 'auto') + '）… 无变更会秒级返回，可先浏览现有快照', '');
+          } else if (wasScanning) {
+            wasScanning = false;
+            fetch('/api/data')
+              .then(function (r) { return r.json(); })
+              .then(function (jj) {
+                if (jj && jj.ok && jj.data && jj.data.rows && jj.data.scannedAt !== lastScannedAt) {
+                  state.data = jj.data; lastScannedAt = jj.data.scannedAt; updateArr(); render();
+                  var si = jj.data.scanInfo || {};
+                  setHint('后台扫描完成，已刷新：' + (si.mode === 'reuse' ? '无变更·复用快照' : (si.mode === 'full' ? '强制全量' : '增量 ' + si.deepScanned + '/' + si.total)) + ' · ' + ((si.durationMs || 0) / 1000).toFixed(1) + 's', 'okc');
+                }
+              })
+              .catch(function () {});
+          }
+        })
+        .catch(function () { /* 无本地服务时忽略 */ });
+    }
+    pollStatus();
+    setInterval(pollStatus, 3000);
   }
 
   boot();

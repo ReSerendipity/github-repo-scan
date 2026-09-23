@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
 <title>GitHub 仓库总览</title>
 <style>
   :root, :root[data-theme="dark"] {
@@ -202,11 +203,11 @@
   .agg-wrap .alert-box, .agg-wrap .lang-box { border: none; background: transparent; padding: 0; margin: 0 0 12px; }
   .agg-wrap .metrics { margin-bottom: 12px; }
 
-  /* Star 周增长趋势（红涨绿跌，遵循 A 股惯例） */
-  .trend { font-weight: 700; font-size: 12px; white-space: nowrap; }
-  .trend.up { color: var(--fail); }
-  .trend.down { color: var(--ok); }
-  .trend.flat { color: var(--muted); }
+  /* Star 周增长趋势（红涨绿跌，遵循 A 股惯例；类名用 swtrend，避免与 CI 趋势点阵的 .trend 冲突） */
+  .swtrend { font-weight: 700; font-size: 12px; white-space: nowrap; }
+  .swtrend.up { color: var(--fail); }
+  .swtrend.down { color: var(--ok); }
+  .swtrend.flat { color: var(--muted); }
 </style>
 </head>
 <body>
@@ -218,7 +219,7 @@
       <div class="scan-meta" id="scanMeta">正在载入数据…</div>
     </div>
     <div class="controls">
-      <button id="scanBtn" class="btn primary" type="button" title="重新扫描并刷新本页数据（远程 + 本地对照；需本地服务已启动：node server.mjs）"><span class="ico"></span><span class="lbl">重新扫描</span></button>
+      <button id="scanBtn" class="btn primary" type="button" title="先探测仓库有无变更，只对变更仓库深度扫描（无变更秒级返回）；按住 Shift 点击 = 强制全量扫描。需本地服务已启动：node server.mjs"><span class="ico"></span><span class="lbl">重新扫描</span></button>
       <button id="scanLocalBtn" class="btn" type="button" title="只扫描本机 Git 仓库并对照/列出（不访问 GitHub，需本地服务）"><span class="ico2"></span><span class="lbl">仅扫本地</span></button>
       <button id="csvBtn" class="btn" type="button" title="导出当前筛选/排序结果为 CSV（Excel 可直接打开，带 UTF-8 BOM）">导出 CSV</button>
       <button id="cloneBtn" class="btn" type="button" title="复制当前可见仓库的 git clone 命令到剪贴板">复制 clone</button>
@@ -407,6 +408,15 @@ window.__SCAN_DATA__ = {"schema":3,"owner":"ReSerendipity","avatarUrl":"https://
     if (score >= 70) return { g: 'B', cls: 'info' };
     if (score >= 50) return { g: 'C', cls: 'warn' };
     return { g: 'D', cls: 'fail' };
+  }
+
+  // 仓库大小格式化（与模块级 fmtSize 语义一致；客户端脚本拿不到模块作用域，须自带一份）
+  function fmtSize(kb) {
+    if (!kb) return '—';
+    if (kb < 1024) return kb + ' KB';
+    var mb = kb / 1024;
+    if (mb < 1024) return mb.toFixed(1) + ' MB';
+    return (mb / 1024).toFixed(2) + ' GB';
   }
 
   /* ---------- 排序 ---------- */
@@ -647,6 +657,17 @@ window.__SCAN_DATA__ = {"schema":3,"owner":"ReSerendipity","avatarUrl":"https://
     box.innerHTML = '<div class="panel-title">' + esc(label) + '</div><div class="local-scroll"><table class="local-table"><thead><tr><th>仓库</th><th>本地路径</th><th>分支</th><th>工作区状态</th><th>最近提交</th><th>远程</th></tr></thead><tbody>' + repos.map(localRowHtml).join('') + '</tbody></table></div>';
   }
 
+  function starWeekCell(r) {
+    if (r.starWeek == null) {
+      var tip = (state.data && state.data.starWeekRef) ? '近 7 天无 Star 变化' : '暂无足够历史（需 ≥6 天扫描记录）';
+      return '<span class="muted" title="' + esc(tip) + '">—</span>';
+    }
+    var n = r.starWeek;
+    var cls = n > 0 ? 'up' : (n < 0 ? 'down' : 'flat');
+    var arrow = n > 0 ? '▲' : (n < 0 ? '▼' : '■');
+    return '<span class="swtrend ' + cls + '" title="近 7 天 Star 变化（对比 ' + esc(fullTime(state.data && state.data.starWeekRef)) + ' 快照）">' + arrow + ' ' + (n > 0 ? '+' : '') + n + '</span>';
+  }
+
   function rowHtml(r) {
     var tags =
       (r.visibility && r.visibility !== 'PUBLIC' ? '<span class="tag warn">私有</span>' : '') +
@@ -700,6 +721,10 @@ window.__SCAN_DATA__ = {"schema":3,"owner":"ReSerendipity","avatarUrl":"https://
     document.getElementById('title').textContent = d.owner + ' · GitHub 仓库总览';
     var hasLocal = !!(d.localScan);
     var meta = '扫描时间 ' + fullTime(d.scannedAt) + ' · 共 ' + d.totals.repos + ' 个仓库（账号名下 ' + d.totals.totalRepos + ' 个） · 数据源 gh api（GraphQL + REST）';
+    if (d.scanInfo) {
+      var si = d.scanInfo;
+      meta += ' · 本次' + (si.mode === 'reuse' ? '无变更·复用快照' : (si.mode === 'full' ? '强制全量' : '增量扫描 ' + si.deepScanned + '/' + si.total)) + ' · ' + ((si.durationMs || 0) / 1000).toFixed(1) + 's';
+    }
     if (hasLocal) meta += ' · 本地对照 ' + d.localScan.count + ' 仓（' + fullTime(d.localScan.scannedAt) + '）';
     document.getElementById('scanMeta').textContent = meta;
     var t = d.totals;
@@ -776,7 +801,7 @@ window.__SCAN_DATA__ = {"schema":3,"owner":"ReSerendipity","avatarUrl":"https://
       var v = rm.get(x); var pct = maxRank > 0 ? Math.round(v / maxRank * 100) : 0;
       var valTxt = (rm.key === 'stars' ? v + ' ' : '') + rm.unit;
       if (rm.key === 'stars' && x.starWeek != null) {
-        valTxt += ' <span class="trend ' + (x.starWeek > 0 ? 'up' : (x.starWeek < 0 ? 'down' : 'flat')) + '" title="近 7 天 Star 变化">' + (x.starWeek > 0 ? '+' : '') + x.starWeek + '/周</span>';
+        valTxt += ' <span class="swtrend ' + (x.starWeek > 0 ? 'up' : (x.starWeek < 0 ? 'down' : 'flat')) + '" title="近 7 天 Star 变化">' + (x.starWeek > 0 ? '+' : '') + x.starWeek + '/周</span>';
       }
       return '<div class="lang-row"><div class="top"><span><span class="rk">#' + (i + 1) + '</span><a class="nm" href="' + esc(x.url) + '" target="_blank" rel="noopener">' + esc(x.name) + '</a></span><span class="ct">' + valTxt + '</span></div>' +
         '<div class="bar"><i style="width:' + pct + '%;background:var(--accent)"></i></div></div>';
@@ -817,14 +842,15 @@ window.__SCAN_DATA__ = {"schema":3,"owner":"ReSerendipity","avatarUrl":"https://
     h.className = 'hint' + (cls ? ' ' + cls : '');
   }
 
-  function doScan() {
+  function doScan(e) {
     if (state.scanning) return;
+    var full = !!(e && e.shiftKey);
     state.scanning = true;
     var btn = document.getElementById('scanBtn');
     btn.classList.add('scanning');
     btn.querySelector('.lbl').textContent = '扫描中…';
-    setHint('正在通过 gh api 并行拉取数据（GraphQL 分页 + REST，约 5–15 秒）…');
-    fetch('/api/scan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+    setHint(full ? '强制全量扫描：逐仓拉取许可证 / CI / 最近提交（约 5–15 秒）…' : '先探测仓库有无变更，只对变更仓库深度扫描（无变更会秒级返回）…');
+    fetch('/api/scan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ full: full }) })
       .then(function (r) {
         return r.json().catch(function () { return { ok: false, error: 'HTTP ' + r.status }; });
       })
@@ -833,7 +859,9 @@ window.__SCAN_DATA__ = {"schema":3,"owner":"ReSerendipity","avatarUrl":"https://
         state.data = j.data;
         updateArr();
         render();
-        setHint('已更新：' + fullTime(state.data.scannedAt) + ' · dashboard.html 与 scan-data.json 已同步写入磁盘', 'okc');
+        var si = state.data.scanInfo || {};
+        var tag = si.mode === 'reuse' ? '无变更·复用快照' : (si.mode === 'full' ? '强制全量' : '增量扫描 ' + si.deepScanned + '/' + si.total);
+        setHint('已更新：' + fullTime(state.data.scannedAt) + ' · ' + tag + ' · ' + ((si.durationMs || 0) / 1000).toFixed(1) + 's · dashboard.html 与 scan-data.json 已同步写入磁盘', 'okc');
       })
       .catch(function (e) {
         var m = String((e && e.message) || e);
@@ -934,8 +962,7 @@ window.__SCAN_DATA__ = {"schema":3,"owner":"ReSerendipity","avatarUrl":"https://
   /* ---------- 导出 CSV（当前筛选/排序结果） ---------- */
   function csvCell(v) {
     var s = v == null ? '' : String(v);
-    if (/[",
-]/.test(s)) s = '"' + s.replace(/"/g, '""') + '"';
+    if (/[",\n\r]/.test(s)) s = '"' + s.replace(/"/g, '""') + '"';
     return s;
   }
   function exportCsv() {
@@ -957,8 +984,7 @@ window.__SCAN_DATA__ = {"schema":3,"owner":"ReSerendipity","avatarUrl":"https://
         r.lastCommit ? r.lastCommit.fileCount : '', relTime(r.pushedAt), r.url,
       ].map(csvCell).join(','));
     }
-    var csv = '﻿' + lines.join('
-');
+    var csv = '﻿' + lines.join('\r\n');
     var blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
     var a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -971,8 +997,7 @@ window.__SCAN_DATA__ = {"schema":3,"owner":"ReSerendipity","avatarUrl":"https://
   function copyClones() {
     var rows = visibleRows();
     if (!rows.length) { setHint('当前没有可见仓库可复制', 'err'); return; }
-    var text = rows.map(function (r) { return 'git clone ' + r.url; }).join('
-');
+    var text = rows.map(function (r) { return 'git clone ' + r.url; }).join('\n');
     function done() { setHint('已复制 ' + rows.length + ' 条 git clone 命令到剪贴板', 'okc'); }
     function fb() {
       try {
@@ -1047,7 +1072,7 @@ window.__SCAN_DATA__ = {"schema":3,"owner":"ReSerendipity","avatarUrl":"https://
         state.fStatus = st;
         document.getElementById('fStatus').value = st;
         render();
-        setHint('已按聚合视图筛选：' + chip.textContent.replace(/^[⚠s]+/, '').replace(/s+/g, ' ').trim(), 'okc');
+        setHint('已按聚合视图筛选：' + chip.textContent.replace(/^[⚠\s]+/, '').replace(/\s+/g, ' ').trim(), 'okc');
       }
     });
     document.getElementById('rankBox').addEventListener('click', function (e) {
@@ -1144,6 +1169,36 @@ window.__SCAN_DATA__ = {"schema":3,"owner":"ReSerendipity","avatarUrl":"https://
         if (j && j.ok && j.data && j.data.rows) { state.data = j.data; render(); }
       })
       .catch(function () { /* file:// 或静态托管时无服务，用内嵌快照 */ });
+
+    // 轮询服务状态：启动时的后台自动扫描完成后自动刷新（页面本身立即可用，无需等待扫描）
+    var lastScannedAt = (state.data && state.data.scannedAt) || null;
+    var wasScanning = false;
+    function pollStatus() {
+      fetch('/api/status')
+        .then(function (r) { return r.json(); })
+        .then(function (j) {
+          if (!j || !j.ok || !j.status) return;
+          if (j.status.scanning) {
+            wasScanning = true;
+            setHint('后台正在扫描（' + (j.status.mode || 'auto') + '）… 无变更会秒级返回，可先浏览现有快照', '');
+          } else if (wasScanning) {
+            wasScanning = false;
+            fetch('/api/data')
+              .then(function (r) { return r.json(); })
+              .then(function (jj) {
+                if (jj && jj.ok && jj.data && jj.data.rows && jj.data.scannedAt !== lastScannedAt) {
+                  state.data = jj.data; lastScannedAt = jj.data.scannedAt; updateArr(); render();
+                  var si = jj.data.scanInfo || {};
+                  setHint('后台扫描完成，已刷新：' + (si.mode === 'reuse' ? '无变更·复用快照' : (si.mode === 'full' ? '强制全量' : '增量 ' + si.deepScanned + '/' + si.total)) + ' · ' + ((si.durationMs || 0) / 1000).toFixed(1) + 's', 'okc');
+                }
+              })
+              .catch(function () {});
+          }
+        })
+        .catch(function () { /* 无本地服务时忽略 */ });
+    }
+    pollStatus();
+    setInterval(pollStatus, 3000);
   }
 
   boot();

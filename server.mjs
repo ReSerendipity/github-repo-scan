@@ -6,12 +6,15 @@
  *   GET  /                → dashboard.html（内嵌最新快照的交互面板）
  *   GET  /dashboard.html  → 同上
  *   GET  /api/data        → 最近一次扫描数据（JSON）
- *   POST /api/scan        → 重新扫描（远程 + 本地对照，复用 gh CLI + 本机 git），原地返回最新数据并更新磁盘文件
+ *   GET  /api/status      → 扫描状态（是否在扫描 / 模式 / 起止时间），供页面 3 秒轮询自动刷新
+ *   POST /api/scan        → 重新扫描（body 可带 {"full":true} 强制全量）；默认先探测变更、只深挖变更仓库
  *   POST /api/scan-local  → 仅扫描本机 Git 仓库（不访问 GitHub），并入现有快照
  *   GET  /api/config      → 读取本地扫描配置（scan-config.json）
  *   POST /api/config      → 保存本地扫描配置（localScanRoots / localScanDepth）
  *
- * 仅监听 127.0.0.1；扫描耗时约 20–40 秒（30+ 个 GitHub API 调用）。
+ * 仅监听 127.0.0.1。扫描策略：先拉仓库列表与上次快照比对，无变更的仓库复用上次明细（不发额外请求）；
+ * 无变更时秒级返回，有变更时只对变更仓库做深度拉取。启动时的自动扫描在后台运行，不阻塞页面打开。
+ * CLI：--port 8787 / --scan-on-start=always|stale|first|off / --no-open
  */
 import http from "node:http";
 import { readFileSync, existsSync } from "node:fs";
@@ -20,9 +23,18 @@ import { spawn } from "node:child_process";
 import { collectData, collectLocal, mergeLocalSnapshot, writeOutputs, readLocalConfig, writeLocalConfig, HERE } from "./scan-core.mjs";
 
 const args = process.argv.slice(2);
+// 兼容 `--name value` 与 `--name=value` 两种写法
+function argValue(name) {
+  const i = args.indexOf(name);
+  if (i >= 0 && args[i + 1] && !String(args[i + 1]).startsWith("--")) return args[i + 1];
+  const hit = args.find((a) => a.startsWith(name + "="));
+  return hit ? hit.slice(name.length + 1) : null;
+}
 const portIdx = args.indexOf("--port");
 const basePort = portIdx >= 0 ? Number(args[portIdx + 1]) : 8787;
 let busy = false;
+// 扫描状态：供 /api/status 与页面轮询，实现「后台扫描、页面立即可用」
+let scanState = { scanning: false, startedAt: null, finishedAt: null, mode: null, source: null, error: null };
 
 /* 启动前自动扫描决策：
  *   always → 每次启动都先扫描再开页面（约 20–40 秒）
@@ -32,9 +44,8 @@ let busy = false;
  * CLI --scan-on-start=<mode> 优先级最高；否则读 scan-config.json 的 autoScanOnStart。
  */
 function decideStartupScan() {
-  const idx = args.indexOf("--scan-on-start");
-  let mode = null;
-  if (idx >= 0 && args[idx + 1]) mode = String(args[idx + 1]).toLowerCase();
+  const v = argValue("--scan-on-start");
+  let mode = v ? String(v).toLowerCase() : null;
   if (!mode) mode = String(readLocalConfig().autoScanOnStart || "first").toLowerCase();
   if (mode === "off" || mode === "first") return mode === "first" && !existsSync(join(HERE, "scan-data.json"));
   if (mode === "always") return true;
@@ -87,6 +98,9 @@ const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, "http://127.0.0.1");
   if (req.method === "OPTIONS") { res.writeHead(204, CORS); return res.end(); }
   try {
+    if (url.pathname === "/api/status" && req.method === "GET") {
+      return sendJson(res, 200, { ok: true, busy, status: scanState });
+    }
     if ((url.pathname === "/" || url.pathname === "/dashboard.html") && req.method === "GET") {
       const f = join(HERE, "dashboard.html");
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
@@ -108,17 +122,23 @@ const server = http.createServer(async (req, res) => {
       if (busy) return sendJson(res, 409, { ok: false, error: "已有一次扫描正在进行，请稍候" });
       busy = true;
       const body = await readBody(req);
-      console.log("▸ [" + new Date().toLocaleTimeString("zh-CN", { hour12: false }) + "] 收到扫描请求" + (body.owner ? "（账号 " + body.owner + "）" : "") + "…");
+      const full = !!(body && body.full);
+      scanState = { scanning: true, startedAt: new Date().toISOString(), finishedAt: null, mode: full ? "full" : "auto", source: "manual", error: null };
+      console.log("▸ [" + new Date().toLocaleTimeString("zh-CN", { hour12: false }) + "] 收到扫描请求" + (body.owner ? "（账号 " + body.owner + "）" : "") + (full ? "（强制全量）" : "") + "…");
       try {
-        const data = await collectData(body.owner);
+        const data = await collectData(body.owner, { full });
         writeOutputs(data, true);
-        console.log("✔ 扫描完成：" + data.totals.repos + " 个仓库 · CI 通过 " + data.totals.ciOk + "/" + data.totals.ciDone + " · dashboard.html / scan-data.json 已更新");
+        const si = data.scanInfo || {};
+        console.log("✔ 扫描完成：" + data.totals.repos + " 个仓库 · " + (si.mode || "?") + " · " + ((si.durationMs || 0) / 1000).toFixed(1) + "s · CI 通过 " + data.totals.ciOk + "/" + data.totals.ciDone + " · dashboard.html / scan-data.json 已更新");
         return sendJson(res, 200, { ok: true, data });
       } catch (e) {
         console.error("✖ 扫描失败：" + (e?.message ?? e));
+        scanState.error = String(e?.message ?? e);
         return sendJson(res, 500, { ok: false, error: String(e?.message ?? e) });
       } finally {
         busy = false;
+        scanState.scanning = false;
+        scanState.finishedAt = new Date().toISOString();
       }
     }
     if (url.pathname === "/api/scan-local" && req.method === "POST") {
@@ -128,6 +148,7 @@ const server = http.createServer(async (req, res) => {
       if (busy) return sendJson(res, 409, { ok: false, error: "已有一次扫描正在进行，请稍候" });
       busy = true;
       const body = await readBody(req);
+      scanState = { scanning: true, startedAt: new Date().toISOString(), finishedAt: null, mode: "local", source: "local", error: null };
       console.log("▸ [" + new Date().toLocaleTimeString("zh-CN", { hour12: false }) + "] 收到本地扫描请求…");
       try {
         const cfg = readLocalConfig();
@@ -140,9 +161,12 @@ const server = http.createServer(async (req, res) => {
         return sendJson(res, 200, { ok: true, data });
       } catch (e) {
         console.error("✖ 本地扫描失败：" + (e?.message ?? e));
+        scanState.error = String(e?.message ?? e);
         return sendJson(res, 500, { ok: false, error: String(e?.message ?? e) });
       } finally {
         busy = false;
+        scanState.scanning = false;
+        scanState.finishedAt = new Date().toISOString();
       }
     }
     if (url.pathname === "/api/config") {
@@ -202,21 +226,27 @@ server.on("error", (e) => {
   }
 });
 
-// 启动前自动扫描：依据 decideStartupScan() 决定是否先扫一遍再开页面
+// 自动扫描模式（CLI --scan-on-start 优先，否则读 scan-config.json）
 const _scanMode = (() => {
-  const idx = args.indexOf("--scan-on-start");
-  if (idx >= 0 && args[idx + 1]) return String(args[idx + 1]).toLowerCase();
-  return String(readLocalConfig().autoScanOnStart || "first").toLowerCase();
+  const v = argValue("--scan-on-start");
+  return v ? String(v).toLowerCase() : String(readLocalConfig().autoScanOnStart || "first").toLowerCase();
 })();
-if (decideStartupScan()) {
-  console.log("▸ 启动前自动扫描（模式 " + _scanMode + "，约 20–40 秒）…");
-  try {
-    const d = await collectData();
-    writeOutputs(d, true);
-    console.log("✔ 启动前扫描完成：" + d.totals.repos + " 个仓库 · dashboard.html / scan-data.json 已更新");
-  } catch (e) {
-    console.error("✖ 启动前扫描失败，改用现有快照：" + (e?.message ?? e));
-  }
+
+// 后台扫描：不阻塞页面打开 —— 先把页面开出来（用现有快照），扫描在后台跑，完成后写盘；
+// 页面轮询 /api/status 检测到扫描结束再自动刷新。无变更时 collectData 会秒级返回。
+function runBackgroundScan(source) {
+  if (busy) { console.log("▸ 已有扫描进行中，跳过本次自动扫描"); return; }
+  busy = true;
+  scanState = { scanning: true, startedAt: new Date().toISOString(), finishedAt: null, mode: _scanMode, source, error: null };
+  console.log("▸ 后台自动扫描开始（" + source + "，模式 " + _scanMode + "；无变更会秒级返回）…");
+  collectData()
+    .then((d) => {
+      writeOutputs(d, true);
+      const si = d.scanInfo || {};
+      console.log("✔ 后台扫描完成：" + d.totals.repos + " 个仓库 · " + (si.mode || "?") + " · " + ((si.durationMs || 0) / 1000).toFixed(1) + "s · dashboard.html / scan-data.json 已更新");
+    })
+    .catch((e) => { scanState.error = String(e?.message ?? e); console.error("✖ 后台扫描失败，继续用现有快照：" + scanState.error); })
+    .finally(() => { busy = false; scanState.scanning = false; scanState.finishedAt = new Date().toISOString(); });
 }
 
 server.listen(Number.isFinite(basePort) ? basePort : 8787, "127.0.0.1", () => {
@@ -224,5 +254,7 @@ server.listen(Number.isFinite(basePort) ? basePort : 8787, "127.0.0.1", () => {
   const url = "http://127.0.0.1:" + port + "/";
   console.log("▸ GitHub 仓库总览服务已启动：" + url);
   console.log("▸ 页面内的「重新扫描」依赖本服务；停止服务按 Ctrl+C 或关闭窗口。");
-  openBrowser(url);
+  if (!args.includes("--no-open")) openBrowser(url);
+  // 页面已可用（用现有快照）；如需自动扫描则在后台跑，不阻塞打开
+  if (decideStartupScan()) runBackgroundScan("startup");
 });

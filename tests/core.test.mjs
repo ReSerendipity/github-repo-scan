@@ -1,10 +1,11 @@
 // 冒烟测试：node --test
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { ciStateOf, relTime, fullTime, renderDashboard, scoreOf, gradeOf, applyJq, parseRemoteUrl, findGitRepos, matchLocalToRemote, applyLocalTotals, fmtSize, computeStarWeek } from "../scan-core.mjs";
+import { ciStateOf, relTime, fullTime, renderDashboard, scoreOf, gradeOf, applyJq, parseRemoteUrl, findGitRepos, matchLocalToRemote, applyLocalTotals, fmtSize, computeStarWeek, repoUnchanged } from "../scan-core.mjs";
 import { mkdtempSync, mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import vm from "node:vm";
 
 test("ciStateOf：无运行记录", () => {
   const s = ciStateOf(null);
@@ -282,4 +283,83 @@ test("computeStarWeek：无历史应返回 null", () => {
   computeStarWeek(data, []);
   assert.equal(data.rows[0].starWeek, null);
   assert.equal(data.starWeekRef, null);
+});
+
+test("renderDashboard：内嵌客户端脚本必须是合法 JS（防模板字面量转义泄漏）", () => {
+  // 关键回归：renderDashboard 用模板字面量拼 HTML，客户端脚本里的 \n \r \s 等
+  // 会被外层模板「吃掉」（\n→真换行、\s→s），导致整个 <script> 语法错误、页面永久卡在「正在载入…」。
+  const data = {
+    schema: 3, owner: "demo", avatarUrl: "", scannedAt: "2026-09-21T00:00:00Z", truncated: false, rate: null,
+    totals: { repos: 1, totalRepos: 1, stars: 5, forks: 1, openIssues: 0, openPRs: 0, releases: 0, ciDone: 0, ciOk: 0, sizeTotal: 1024 },
+    rows: [{
+      name: "demo-repo", url: "https://github.com/demo/demo-repo", description: "含逗号,引号\"与反斜杠\\的仓库",
+      visibility: "PUBLIC", isArchived: false, isFork: false, createdAt: "2026-01-01T00:00:00Z", pushedAt: "2026-09-21T00:00:00Z",
+      stars: 5, starWeek: 2, forks: 1, size: 1024, openIssues: 0, openPRs: 0, branches: 1, defaultBranch: "main",
+      license: "MIT", licenseUrl: "u", releases: 0, latestRelease: null,
+      ci: { state: "无 CI 记录", cls: "none", workflow: null, ref: null, ranAt: null, url: null, trend: [] },
+      language: "Python", langColor: "#3572A5", lastCommit: null,
+    }],
+  };
+  const html = renderDashboard(data);
+  const tags = html.match(/<script>[\s\S]*?<\/script>/g) || [];
+  assert.ok(tags.length >= 2, "应含数据块与客户端脚本两个 <script>");
+  tags.forEach((s, i) => {
+    const body = s.slice(8, -9);
+    assert.doesNotThrow(() => new vm.Script(body, { filename: "block" + (i + 1) + ".js" }), "脚本块 " + (i + 1) + " 应语法合法");
+  });
+  const all = tags.map((s) => s.slice(8, -9)).join("\n");
+  assert.equal(all.indexOf("\r"), -1, "客户端脚本不应含裸 CR 字符（模板转义泄漏）");
+  assert.ok(all.includes("function starWeekCell"), "应定义 starWeekCell 渲染函数");
+  assert.ok(all.includes('/[",\\n\\r]/'), "csvCell 正则应保留 \\n \\r 转义");
+  assert.ok(all.includes("/^[⚠\\s]+/"), "聚合筛选正则应保留 \\s 转义");
+});
+
+test("renderDashboard：客户端脚本不得调用未定义的服务端辅助函数", () => {
+  // 曾被语法错误掩盖的隐藏坑：客户端脚本调用了模块级才有的 fmtSize() 等，运行时抛 ReferenceError
+  const html = renderDashboard({
+    schema: 3, owner: "demo", avatarUrl: "", scannedAt: null, truncated: false, rate: null,
+    totals: { repos: 0, totalRepos: 0, stars: 0, forks: 0, openIssues: 0, openPRs: 0, releases: 0, ciDone: 0, ciOk: 0, sizeTotal: 0 },
+    rows: [],
+  });
+  const tags = html.match(/<script>[\s\S]*?<\/script>/g) || [];
+  const client = tags[tags.length - 1].slice(8, -9);
+  const serverOnly = ["fmtSize", "esc", "relTime", "fullTime", "ciStateOf", "scoreOf", "gradeOf", "applyJq", "parseRemoteUrl", "findGitRepos", "matchLocalToRemote", "applyLocalTotals", "computeStarWeek", "repoUnchanged", "collectData", "collectLocal", "mergeLocalSnapshot", "writeOutputs", "printSummary", "loadStarHistory", "recordStarHistory"];
+  for (const name of serverOnly) {
+    const at = client.indexOf(name + "(");
+    if (at < 0) continue;
+    if (/[A-Za-z0-9_$]/.test(client.charAt(at - 1) || " ")) continue; // 是更长标识符的一部分
+    const defined = client.indexOf("function " + name + "(") >= 0 || client.indexOf("function " + name + " (") >= 0
+      || client.indexOf("var " + name + " =") >= 0 || client.indexOf("var " + name + "=") >= 0
+      || client.indexOf("let " + name + " =") >= 0 || client.indexOf("const " + name + " =") >= 0;
+    assert.ok(defined, "客户端脚本调用了 " + name + "() 但未在脚本内定义（会抛 ReferenceError）");
+  }
+  // Star 周增长用独立类名 swtrend，避免与 CI 趋势点阵的 .trend 冲突
+  assert.ok(client.indexOf("swtrend") >= 0, "Star 周增长应使用 swtrend 类名");
+  assert.ok(html.indexOf(".swtrend") >= 0, "CSS 应定义 .swtrend");
+});
+
+test("repoUnchanged：listing 级字段全等且 CI 不在运行中 → 视为无变化", () => {
+  const prev = { pushedAt: "p", stars: 1, forks: 0, openIssues: 2, openPRs: 0, branches: 1, releases: 0, isArchived: false, visibility: "PUBLIC", ci: { cls: "ok" } };
+  const next = { pushedAt: "p", stars: 1, forks: 0, openIssues: 2, openPRs: 0, branches: 1, releases: 0, isArchived: false, visibility: "PUBLIC" };
+  assert.equal(repoUnchanged(prev, next), true, "完全一致应判定无变化");
+  assert.equal(repoUnchanged(prev, { ...next, stars: 2 }), false, "star 变化应视为有变更");
+  assert.equal(repoUnchanged(prev, { ...next, pushedAt: "q" }), false, "push 变化应视为有变更");
+  assert.equal(repoUnchanged(prev, { ...next, openIssues: 3 }), false, "issue 数变化应视为有变更");
+  assert.equal(repoUnchanged(prev, { ...next, releases: 1 }), false, "发布数变化应视为有变更");
+  assert.equal(repoUnchanged(prev, { ...next, visibility: "PRIVATE" }), false, "可见性变化应视为有变更");
+  assert.equal(repoUnchanged(null, next), false, "无上次快照应视为有变更");
+  assert.equal(repoUnchanged({ ...prev, ci: { cls: "running" } }, next), false, "CI 运行中应重查");
+});
+
+test("renderDashboard：脚本应接入 scanInfo 与 /api/status（先探测再扫描 + 后台刷新）", () => {
+  const html = renderDashboard({
+    schema: 3, owner: "demo", avatarUrl: "", scannedAt: null, truncated: false, rate: null,
+    totals: { repos: 0, totalRepos: 0, stars: 0, forks: 0, openIssues: 0, openPRs: 0, releases: 0, ciDone: 0, ciOk: 0, sizeTotal: 0 },
+    rows: [],
+  });
+  assert.ok(html.includes("scanInfo"), "脚本应读取 scanInfo");
+  assert.ok(html.includes("无变更·复用快照"), "应含复用模式文案");
+  assert.ok(html.includes("强制全量"), "应含强制全量文案");
+  assert.ok(html.includes("/api/status"), "应轮询 /api/status");
+  assert.ok(html.includes('id="scanBtn"'), "应有扫描按钮");
 });
