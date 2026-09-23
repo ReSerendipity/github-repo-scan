@@ -1,27 +1,647 @@
 {
-  "schema": 2,
+  "schema": 3,
   "owner": "ReSerendipity",
   "avatarUrl": "https://avatars.githubusercontent.com/u/259081123?s=96&u=8f95238d55cf3ad3e9d3fac10c5d2d6a937b2d4a&v=4",
-  "scannedAt": "2026-09-21T15:57:27.663Z",
+  "scannedAt": "2026-09-23T00:17:59.856Z",
   "truncated": false,
   "rate": {
     "limit": 5000,
     "remaining": 5000,
-    "reset": 1790009862,
+    "reset": 1790126299,
     "used": 0
   },
   "totals": {
-    "repos": 19,
-    "totalRepos": 19,
+    "repos": 25,
+    "totalRepos": 25,
     "stars": 24,
     "forks": 4,
-    "openIssues": 5,
-    "openPRs": 16,
-    "releases": 37,
-    "ciDone": 10,
-    "ciOk": 8
+    "openIssues": 1,
+    "openPRs": 11,
+    "releases": 41,
+    "ciDone": 13,
+    "ciOk": 13,
+    "localTotal": 44,
+    "localMatched": 31,
+    "localMissing": 2,
+    "localOnly": 13,
+    "localDirty": 11,
+    "localDiverged": 8
   },
   "rows": [
+    {
+      "name": "TTS_MultiModel",
+      "url": "https://github.com/ReSerendipity/TTS_MultiModel",
+      "description": "五引擎语音合成平台：VoxCPM2 / IndexTTS 2.5 / IndexTTS 2.0 / OpenVoice / Step-Audio-EditX，声音克隆、声音设计、多角色剧本配音、流式生成，中英日韩界面，Windows/Linux/Docker 一键部署 | Multi-engine TTS platform (5 engines) with voice cloning, voice design, multi-character dubbing & streaming, zh/en/ja/ko UI, one-click deploy",
+      "visibility": "PUBLIC",
+      "isArchived": false,
+      "isFork": false,
+      "createdAt": "2026-05-08T00:48:26Z",
+      "pushedAt": "2026-09-23T00:15:51Z",
+      "stars": 10,
+      "forks": 2,
+      "openIssues": 1,
+      "openPRs": 3,
+      "branches": 46,
+      "defaultBranch": "main",
+      "license": "Apache-2.0",
+      "licenseUrl": "https://github.com/ReSerendipity/TTS_MultiModel/blob/main/LICENSE",
+      "releases": 8,
+      "latestRelease": {
+        "tag": "v2.2.5",
+        "name": "v2.2.5",
+        "publishedAt": "2026-09-22T13:30:06Z",
+        "url": "https://github.com/ReSerendipity/TTS_MultiModel/releases/tag/v2.2.5"
+      },
+      "ci": {
+        "state": "通过",
+        "cls": "ok",
+        "workflow": "Self-Purify Check",
+        "ref": "main",
+        "ranAt": "2026-09-23T00:15:55Z",
+        "url": "https://github.com/ReSerendipity/TTS_MultiModel/actions/runs/35801287532",
+        "trend": [
+          {
+            "s": "in_progress",
+            "c": null,
+            "at": "2026-09-23T00:15:54Z"
+          },
+          {
+            "s": "completed",
+            "c": "success",
+            "at": "2026-09-23T00:15:54Z"
+          },
+          {
+            "s": "completed",
+            "c": "success",
+            "at": "2026-09-23T00:15:54Z"
+          },
+          {
+            "s": "in_progress",
+            "c": null,
+            "at": "2026-09-23T00:15:55Z"
+          },
+          {
+            "s": "completed",
+            "c": "success",
+            "at": "2026-09-23T00:15:55Z"
+          }
+        ]
+      },
+      "language": "Python",
+      "langColor": "#3572A5",
+      "traffic": null,
+      "local": {
+        "path": "C:\\Users\\Doro\\TTS_MultiModel",
+        "branch": "ci/rp-exclude-paths",
+        "head": "0c1aba3",
+        "dirty": true,
+        "dirtyCount": 38,
+        "ahead": null,
+        "behind": null,
+        "lastCommitAt": "2026-09-22T22:23:23+08:00",
+        "remoteUrl": "https://github.com/ReSerendipity/TTS_MultiModel.git"
+      }
+    },
+    {
+      "name": "nekogal-dl",
+      "url": "https://github.com/ReSerendipity/nekogal-dl",
+      "description": "",
+      "visibility": "PRIVATE",
+      "isArchived": false,
+      "isFork": false,
+      "createdAt": "2026-09-22T15:31:35Z",
+      "pushedAt": "2026-09-22T15:31:36Z",
+      "stars": 0,
+      "forks": 0,
+      "openIssues": 0,
+      "openPRs": 0,
+      "branches": 0,
+      "defaultBranch": "—",
+      "license": null,
+      "licenseUrl": null,
+      "releases": 0,
+      "latestRelease": null,
+      "ci": {
+        "state": "无 CI 记录",
+        "cls": "none",
+        "workflow": null,
+        "ref": null,
+        "ranAt": null,
+        "url": null,
+        "trend": []
+      },
+      "language": null,
+      "langColor": "#8b949e",
+      "traffic": null,
+      "local": {
+        "path": "C:\\Users\\Doro\\Desktop\\TEST\\nekogal-dl",
+        "branch": "main",
+        "head": "cb9e0d1",
+        "dirty": false,
+        "dirtyCount": 0,
+        "ahead": null,
+        "behind": null,
+        "lastCommitAt": "2026-09-21T23:08:46+08:00",
+        "remoteUrl": "https://github.com/ReSerendipity/nekogal-dl.git"
+      }
+    },
+    {
+      "name": "image-scrapers",
+      "url": "https://github.com/ReSerendipity/image-scrapers",
+      "description": "",
+      "visibility": "PRIVATE",
+      "isArchived": false,
+      "isFork": false,
+      "createdAt": "2026-09-22T15:31:32Z",
+      "pushedAt": "2026-09-22T15:31:33Z",
+      "stars": 0,
+      "forks": 0,
+      "openIssues": 0,
+      "openPRs": 0,
+      "branches": 0,
+      "defaultBranch": "—",
+      "license": null,
+      "licenseUrl": null,
+      "releases": 0,
+      "latestRelease": null,
+      "ci": {
+        "state": "无 CI 记录",
+        "cls": "none",
+        "workflow": null,
+        "ref": null,
+        "ranAt": null,
+        "url": null,
+        "trend": []
+      },
+      "language": null,
+      "langColor": "#8b949e",
+      "traffic": null,
+      "local": {
+        "path": "C:\\Users\\Doro\\Desktop\\TEST\\image-scrapers",
+        "branch": "main",
+        "head": "9e54bde",
+        "dirty": false,
+        "dirtyCount": 0,
+        "ahead": null,
+        "behind": null,
+        "lastCommitAt": "2026-09-22T17:07:26+08:00",
+        "remoteUrl": "https://github.com/ReSerendipity/image-scrapers.git"
+      }
+    },
+    {
+      "name": "GalgameShell.bak",
+      "url": "https://github.com/ReSerendipity/GalgameShell.bak",
+      "description": "",
+      "visibility": "PRIVATE",
+      "isArchived": false,
+      "isFork": false,
+      "createdAt": "2026-09-22T15:31:27Z",
+      "pushedAt": "2026-09-22T15:31:29Z",
+      "stars": 0,
+      "forks": 0,
+      "openIssues": 0,
+      "openPRs": 0,
+      "branches": 0,
+      "defaultBranch": "—",
+      "license": null,
+      "licenseUrl": null,
+      "releases": 0,
+      "latestRelease": null,
+      "ci": {
+        "state": "无 CI 记录",
+        "cls": "none",
+        "workflow": null,
+        "ref": null,
+        "ranAt": null,
+        "url": null,
+        "trend": []
+      },
+      "language": null,
+      "langColor": "#8b949e",
+      "traffic": null,
+      "local": {
+        "path": "C:\\Users\\Doro\\GalgameShell.bak",
+        "branch": "main",
+        "head": "1f1c841",
+        "dirty": true,
+        "dirtyCount": 1,
+        "ahead": null,
+        "behind": null,
+        "lastCommitAt": "2026-09-22T20:05:36+08:00",
+        "remoteUrl": "https://github.com/ReSerendipity/GalgameShell.bak.git"
+      }
+    },
+    {
+      "name": "Unity",
+      "url": "https://github.com/ReSerendipity/Unity",
+      "description": "",
+      "visibility": "PRIVATE",
+      "isArchived": false,
+      "isFork": false,
+      "createdAt": "2026-09-22T15:31:23Z",
+      "pushedAt": "2026-09-22T15:31:25Z",
+      "stars": 0,
+      "forks": 0,
+      "openIssues": 0,
+      "openPRs": 0,
+      "branches": 0,
+      "defaultBranch": "—",
+      "license": null,
+      "licenseUrl": null,
+      "releases": 0,
+      "latestRelease": null,
+      "ci": {
+        "state": "无 CI 记录",
+        "cls": "none",
+        "workflow": null,
+        "ref": null,
+        "ranAt": null,
+        "url": null,
+        "trend": []
+      },
+      "language": null,
+      "langColor": "#8b949e",
+      "traffic": null,
+      "local": {
+        "path": "C:\\Users\\Doro\\Unity",
+        "branch": "master",
+        "head": "2f7f435",
+        "dirty": false,
+        "dirtyCount": 0,
+        "ahead": null,
+        "behind": null,
+        "lastCommitAt": "2026-09-22T22:36:40+08:00",
+        "remoteUrl": "https://github.com/ReSerendipity/Unity.git"
+      }
+    },
+    {
+      "name": "SeedVR2-lite",
+      "url": "https://github.com/ReSerendipity/SeedVR2-lite",
+      "description": "SeedVR2 视频/图像超分辨率修复工具箱：Tauri 桌面版（一键安装+增量更新）与网页版/便携包，支持 3B/7B/7B-Sharp、FP8、GPU Block Swap 省显存、一键与批量修复、5 种语言界面，无需 ComfyUI | SeedVR2 video & image super-resolution toolkit: Tauri desktop (one-click install + incremental updates) + web/portable, 3B/7B/7B-Sharp & FP8, GPU Block Swap, one-click & batch restore, 5-language UI, no ComfyUI",
+      "visibility": "PUBLIC",
+      "isArchived": false,
+      "isFork": false,
+      "createdAt": "2026-07-23T14:24:11Z",
+      "pushedAt": "2026-09-22T15:20:18Z",
+      "stars": 10,
+      "forks": 2,
+      "openIssues": 0,
+      "openPRs": 0,
+      "branches": 1,
+      "defaultBranch": "main",
+      "license": "Apache-2.0",
+      "licenseUrl": "https://github.com/ReSerendipity/SeedVR2-lite/blob/main/LICENSE",
+      "releases": 19,
+      "latestRelease": {
+        "tag": "v1.5.7",
+        "name": "SeedVR2 v1.5.7（增量更新版）",
+        "publishedAt": "2026-09-10T13:13:08Z",
+        "url": "https://github.com/ReSerendipity/SeedVR2-lite/releases/tag/v1.5.7"
+      },
+      "ci": {
+        "state": "通过",
+        "cls": "ok",
+        "workflow": "Graph Update: uv in /. #1587531352",
+        "ref": "main",
+        "ranAt": "2026-09-22T15:17:53Z",
+        "url": "https://github.com/ReSerendipity/SeedVR2-lite/actions/runs/35746333923",
+        "trend": [
+          {
+            "s": "completed",
+            "c": "success",
+            "at": "2026-09-22T15:17:50Z"
+          },
+          {
+            "s": "completed",
+            "c": "success",
+            "at": "2026-09-22T15:17:50Z"
+          },
+          {
+            "s": "completed",
+            "c": "success",
+            "at": "2026-09-22T15:17:51Z"
+          },
+          {
+            "s": "completed",
+            "c": "success",
+            "at": "2026-09-22T15:17:51Z"
+          },
+          {
+            "s": "completed",
+            "c": "success",
+            "at": "2026-09-22T15:17:53Z"
+          }
+        ]
+      },
+      "language": "Python",
+      "langColor": "#3572A5",
+      "traffic": null,
+      "local": {
+        "path": "C:\\Users\\Doro\\WorkBuddy AI\\2026-09-02-17-36-54\\_fix\\SeedVR2-lite",
+        "branch": "main",
+        "head": "4d433d1",
+        "dirty": false,
+        "dirtyCount": 0,
+        "ahead": 0,
+        "behind": 0,
+        "lastCommitAt": "2026-09-02T23:31:13+08:00",
+        "remoteUrl": "https://github.com/ReSerendipity/SeedVR2-lite.git"
+      }
+    },
+    {
+      "name": "GalgameShell",
+      "url": "https://github.com/ReSerendipity/GalgameShell",
+      "description": "Android application for running Windows applications with Wine and Box86/Box64",
+      "visibility": "PUBLIC",
+      "isArchived": false,
+      "isFork": true,
+      "createdAt": "2026-09-22T13:52:04Z",
+      "pushedAt": "2026-09-22T14:12:21Z",
+      "stars": 0,
+      "forks": 0,
+      "openIssues": 0,
+      "openPRs": 0,
+      "branches": 2,
+      "defaultBranch": "galgame",
+      "license": "LGPL-2.1",
+      "licenseUrl": "https://github.com/ReSerendipity/GalgameShell/blob/galgame/LICENSE",
+      "releases": 0,
+      "latestRelease": null,
+      "ci": {
+        "state": "通过",
+        "cls": "ok",
+        "workflow": "GalgameShell CI",
+        "ref": "galgame",
+        "ranAt": "2026-09-22T14:12:23Z",
+        "url": "https://github.com/ReSerendipity/GalgameShell/actions/runs/35738681318",
+        "trend": [
+          {
+            "s": "completed",
+            "c": "failure",
+            "at": "2026-09-22T13:52:26Z"
+          },
+          {
+            "s": "completed",
+            "c": "failure",
+            "at": "2026-09-22T13:54:06Z"
+          },
+          {
+            "s": "completed",
+            "c": "success",
+            "at": "2026-09-22T13:55:15Z"
+          },
+          {
+            "s": "completed",
+            "c": "success",
+            "at": "2026-09-22T14:08:25Z"
+          },
+          {
+            "s": "completed",
+            "c": "success",
+            "at": "2026-09-22T14:12:23Z"
+          }
+        ]
+      },
+      "language": "C",
+      "langColor": "#555555",
+      "traffic": null,
+      "local": {
+        "path": "C:\\Users\\Doro\\GalgameShell",
+        "branch": "galgame",
+        "head": "9a10e95",
+        "dirty": true,
+        "dirtyCount": 3,
+        "ahead": 0,
+        "behind": 0,
+        "lastCommitAt": "2026-09-22T22:11:49+08:00",
+        "remoteUrl": "https://github.com/ReSerendipity/GalgameShell.git"
+      }
+    },
+    {
+      "name": "bilibili-follow-manager",
+      "url": "https://github.com/ReSerendipity/bilibili-follow-manager",
+      "description": "B站关注列表管理工具：控制台抓取关注UP主并按内容分区分类，生成清理/保留两档名单，代码化批量取关（含白名单拦截与状态核验）",
+      "visibility": "PRIVATE",
+      "isArchived": false,
+      "isFork": false,
+      "createdAt": "2026-09-22T12:11:18Z",
+      "pushedAt": "2026-09-22T12:11:23Z",
+      "stars": 0,
+      "forks": 0,
+      "openIssues": 0,
+      "openPRs": 0,
+      "branches": 1,
+      "defaultBranch": "main",
+      "license": null,
+      "licenseUrl": null,
+      "releases": 0,
+      "latestRelease": null,
+      "ci": {
+        "state": "无 CI 记录",
+        "cls": "none",
+        "workflow": null,
+        "ref": null,
+        "ranAt": null,
+        "url": null,
+        "trend": []
+      },
+      "language": "JavaScript",
+      "langColor": "#f1e05a",
+      "traffic": null,
+      "local": {
+        "path": "C:\\Users\\Doro\\Desktop\\TEST\\bilibili-follow-manager",
+        "branch": "main",
+        "head": "b879412",
+        "dirty": false,
+        "dirtyCount": 0,
+        "ahead": 0,
+        "behind": 0,
+        "lastCommitAt": "2026-09-22T20:10:58+08:00",
+        "remoteUrl": "https://github.com/ReSerendipity/bilibili-follow-manager.git"
+      }
+    },
+    {
+      "name": "Unfading-Wall",
+      "url": "https://github.com/ReSerendipity/Unfading-Wall",
+      "description": "黑板·上的话 — 教师节师生印象墙：学生手书的信贴上老师的黑板墙，零后端链接分享（Apache-2.0）",
+      "visibility": "PUBLIC",
+      "isArchived": false,
+      "isFork": false,
+      "createdAt": "2026-09-08T12:56:48Z",
+      "pushedAt": "2026-09-22T12:05:07Z",
+      "stars": 0,
+      "forks": 0,
+      "openIssues": 0,
+      "openPRs": 0,
+      "branches": 1,
+      "defaultBranch": "main",
+      "license": "Apache-2.0",
+      "licenseUrl": "https://github.com/ReSerendipity/Unfading-Wall/blob/main/LICENSE",
+      "releases": 1,
+      "latestRelease": {
+        "tag": "v1.0.0",
+        "name": "v1.0.0 黑板·上的话 · 师者印象墙",
+        "publishedAt": "2026-09-08T13:21:59Z",
+        "url": "https://github.com/ReSerendipity/Unfading-Wall/releases/tag/v1.0.0"
+      },
+      "ci": {
+        "state": "通过",
+        "cls": "ok",
+        "workflow": "pages build and deployment",
+        "ref": "main",
+        "ranAt": "2026-09-22T12:05:09Z",
+        "url": "https://github.com/ReSerendipity/Unfading-Wall/actions/runs/35725101964",
+        "trend": [
+          {
+            "s": "completed",
+            "c": "cancelled",
+            "at": "2026-09-08T13:21:47Z"
+          },
+          {
+            "s": "completed",
+            "c": "success",
+            "at": "2026-09-08T13:21:59Z"
+          },
+          {
+            "s": "completed",
+            "c": "success",
+            "at": "2026-09-08T13:23:10Z"
+          },
+          {
+            "s": "completed",
+            "c": "success",
+            "at": "2026-09-08T13:28:05Z"
+          },
+          {
+            "s": "completed",
+            "c": "success",
+            "at": "2026-09-22T12:05:09Z"
+          }
+        ]
+      },
+      "language": "JavaScript",
+      "langColor": "#f1e05a",
+      "traffic": null,
+      "local": {
+        "path": "C:\\Users\\Doro\\Desktop\\TEST\\Unfading-Wall",
+        "branch": "main",
+        "head": "5968419",
+        "dirty": false,
+        "dirtyCount": 0,
+        "ahead": 0,
+        "behind": 0,
+        "lastCommitAt": "2026-09-22T20:05:07+08:00",
+        "remoteUrl": "https://ghfast.top/https://github.com/ReSerendipity/Unfading-Wall.git"
+      }
+    },
+    {
+      "name": "health-info-card",
+      "url": "https://github.com/ReSerendipity/health-info-card",
+      "description": "安心牌 · 老人急救信息卡（FoloToy AI Passport 玩法）",
+      "visibility": "PUBLIC",
+      "isArchived": false,
+      "isFork": false,
+      "createdAt": "2026-09-21T07:48:21Z",
+      "pushedAt": "2026-09-22T10:50:09Z",
+      "stars": 0,
+      "forks": 0,
+      "openIssues": 0,
+      "openPRs": 0,
+      "branches": 3,
+      "defaultBranch": "health-info-official",
+      "license": "MIT",
+      "licenseUrl": "https://github.com/ReSerendipity/health-info-card/blob/health-info-official/LICENSE",
+      "releases": 0,
+      "latestRelease": null,
+      "ci": {
+        "state": "跳过",
+        "cls": "none",
+        "workflow": "Upstream Sync",
+        "ref": "health-info-official",
+        "ranAt": "2026-09-22T03:25:52Z",
+        "url": "https://github.com/ReSerendipity/health-info-card/actions/runs/35683128700",
+        "trend": [
+          {
+            "s": "completed",
+            "c": "skipped",
+            "at": "2026-09-22T03:25:52Z"
+          }
+        ]
+      },
+      "language": "C",
+      "langColor": "#555555",
+      "traffic": null,
+      "local": {
+        "path": "C:\\Users\\Doro\\Desktop\\TEST\\health-info-card",
+        "branch": "health-info-official",
+        "head": "d7e4a35",
+        "dirty": false,
+        "dirtyCount": 0,
+        "ahead": 0,
+        "behind": 0,
+        "lastCommitAt": "2026-09-22T18:49:47+08:00",
+        "remoteUrl": "https://gh-proxy.com/https://github.com/ReSerendipity/health-info-card.git"
+      }
+    },
+    {
+      "name": "github-repo-scan",
+      "url": "https://github.com/ReSerendipity/github-repo-scan",
+      "description": "GitHub 账号仓库总览面板：CI / 许可证 / Release / Issue / 分支 / Star·Fork 一张表看完，双击即用 | Local dashboard scanning all your GitHub repos: CI, license, releases, issues, branches, stars - clickable links",
+      "visibility": "PUBLIC",
+      "isArchived": false,
+      "isFork": false,
+      "createdAt": "2026-09-21T12:56:10Z",
+      "pushedAt": "2026-09-22T10:47:31Z",
+      "stars": 0,
+      "forks": 0,
+      "openIssues": 0,
+      "openPRs": 0,
+      "branches": 1,
+      "defaultBranch": "main",
+      "license": "Apache-2.0",
+      "licenseUrl": "https://github.com/ReSerendipity/github-repo-scan/blob/main/LICENSE",
+      "releases": 0,
+      "latestRelease": null,
+      "ci": {
+        "state": "通过",
+        "cls": "ok",
+        "workflow": "pages build and deployment",
+        "ref": "main",
+        "ranAt": "2026-09-22T10:47:32Z",
+        "url": "https://github.com/ReSerendipity/github-repo-scan/actions/runs/35717916815",
+        "trend": [
+          {
+            "s": "completed",
+            "c": "success",
+            "at": "2026-09-21T13:06:34Z"
+          },
+          {
+            "s": "completed",
+            "c": "success",
+            "at": "2026-09-21T15:55:19Z"
+          },
+          {
+            "s": "completed",
+            "c": "success",
+            "at": "2026-09-22T10:47:32Z"
+          }
+        ]
+      },
+      "language": "JavaScript",
+      "langColor": "#f1e05a",
+      "traffic": null,
+      "local": {
+        "path": "C:\\Users\\Doro\\Desktop\\TEST\\github-repo-scan",
+        "branch": "main",
+        "head": "49b6dd4",
+        "dirty": true,
+        "dirtyCount": 8,
+        "ahead": 2,
+        "behind": 1,
+        "lastCommitAt": "2026-09-22T00:08:49+08:00",
+        "remoteUrl": "https://github.com/ReSerendipity/github-repo-scan.git"
+      }
+    },
     {
       "name": "offer-landing-kit",
       "url": "https://github.com/ReSerendipity/offer-landing-kit",
@@ -30,24 +650,24 @@
       "isArchived": false,
       "isFork": false,
       "createdAt": "2026-09-21T11:26:15Z",
-      "pushedAt": "2026-09-21T15:55:21Z",
+      "pushedAt": "2026-09-22T10:47:22Z",
       "stars": 0,
       "forks": 0,
       "openIssues": 0,
       "openPRs": 0,
       "branches": 1,
       "defaultBranch": "main",
-      "license": "MIT",
+      "license": "Apache-2.0",
       "licenseUrl": "https://github.com/ReSerendipity/offer-landing-kit/blob/main/LICENSE",
       "releases": 0,
       "latestRelease": null,
       "ci": {
-        "state": "运行中",
-        "cls": "running",
+        "state": "通过",
+        "cls": "ok",
         "workflow": "pages build and deployment",
         "ref": "main",
-        "ranAt": "2026-09-21T15:55:23Z",
-        "url": "https://github.com/ReSerendipity/offer-landing-kit/actions/runs/35622206247",
+        "ranAt": "2026-09-22T10:47:23Z",
+        "url": "https://github.com/ReSerendipity/offer-landing-kit/actions/runs/35717903061",
         "trend": [
           {
             "s": "completed",
@@ -65,121 +685,100 @@
             "at": "2026-09-21T12:11:52Z"
           },
           {
-            "s": "in_progress",
-            "c": null,
+            "s": "completed",
+            "c": "success",
             "at": "2026-09-21T15:55:23Z"
+          },
+          {
+            "s": "completed",
+            "c": "success",
+            "at": "2026-09-22T10:47:23Z"
           }
         ]
       },
       "language": "HTML",
       "langColor": "#e34c26",
-      "traffic": null
+      "traffic": null,
+      "local": {
+        "path": "C:\\Users\\Doro\\Desktop\\TEST\\offer-landing-kit",
+        "branch": "main",
+        "head": "7712a55",
+        "dirty": false,
+        "dirtyCount": 0,
+        "ahead": 0,
+        "behind": 0,
+        "lastCommitAt": "2026-09-22T18:47:00+08:00",
+        "remoteUrl": "https://gh-proxy.com/https://github.com/ReSerendipity/offer-landing-kit.git"
+      }
     },
     {
-      "name": "github-repo-scan",
-      "url": "https://github.com/ReSerendipity/github-repo-scan",
-      "description": "GitHub 账号仓库总览面板：CI / 许可证 / Release / Issue / 分支 / Star·Fork 一张表看完，双击即用 | Local dashboard scanning all your GitHub repos: CI, license, releases, issues, branches, stars - clickable links",
+      "name": "DraftPeek",
+      "url": "https://github.com/ReSerendipity/DraftPeek",
+      "description": "Android 原生代码/文本编辑器：内置终端、Markdown 预览、40+ 语言语法高亮，Jetpack Compose + 整洁架构，安全加固（反调试/完整性校验/加密）| Native Android code/text editor with built-in terminal, Markdown preview & 40+ language highlighting, Jetpack Compose, hardened",
       "visibility": "PUBLIC",
       "isArchived": false,
       "isFork": false,
-      "createdAt": "2026-09-21T12:56:10Z",
-      "pushedAt": "2026-09-21T15:55:18Z",
+      "createdAt": "2026-08-27T11:41:24Z",
+      "pushedAt": "2026-09-22T06:05:05Z",
       "stars": 0,
       "forks": 0,
       "openIssues": 0,
       "openPRs": 0,
-      "branches": 1,
-      "defaultBranch": "main",
-      "license": "MIT",
-      "licenseUrl": "https://github.com/ReSerendipity/github-repo-scan/blob/main/LICENSE",
-      "releases": 0,
-      "latestRelease": null,
-      "ci": {
-        "state": "运行中",
-        "cls": "running",
-        "workflow": "pages build and deployment",
-        "ref": "main",
-        "ranAt": "2026-09-21T15:55:19Z",
-        "url": "https://github.com/ReSerendipity/github-repo-scan/actions/runs/35622200290",
-        "trend": [
-          {
-            "s": "completed",
-            "c": "success",
-            "at": "2026-09-21T13:06:34Z"
-          },
-          {
-            "s": "in_progress",
-            "c": null,
-            "at": "2026-09-21T15:55:19Z"
-          }
-        ]
-      },
-      "language": "JavaScript",
-      "langColor": "#f1e05a",
-      "traffic": null
-    },
-    {
-      "name": "TTS_MultiModel",
-      "url": "https://github.com/ReSerendipity/TTS_MultiModel",
-      "description": "五引擎语音合成平台：VoxCPM2 / IndexTTS 2.5 / IndexTTS 2.0 / OpenVoice / Step-Audio-EditX，声音克隆、声音设计、多角色剧本配音、流式生成，中英日韩界面，Windows/Linux/Docker 一键部署 | Multi-engine TTS platform (5 engines) with voice cloning, voice design, multi-character dubbing & streaming, zh/en/ja/ko UI, one-click deploy",
-      "visibility": "PUBLIC",
-      "isArchived": false,
-      "isFork": false,
-      "createdAt": "2026-05-08T00:48:26Z",
-      "pushedAt": "2026-09-21T15:35:55Z",
-      "stars": 10,
-      "forks": 2,
-      "openIssues": 3,
-      "openPRs": 8,
-      "branches": 25,
+      "branches": 2,
       "defaultBranch": "main",
       "license": "Apache-2.0",
-      "licenseUrl": "https://github.com/ReSerendipity/TTS_MultiModel/blob/main/LICENSE",
-      "releases": 4,
-      "latestRelease": {
-        "tag": "v2.2.1",
-        "name": "v2.2.1",
-        "publishedAt": "2026-08-22T04:43:17Z",
-        "url": "https://github.com/ReSerendipity/TTS_MultiModel/releases/tag/v2.2.1"
-      },
+      "licenseUrl": "https://github.com/ReSerendipity/DraftPeek/blob/main/LICENSE",
+      "releases": 1,
+      "latestRelease": null,
       "ci": {
         "state": "通过",
         "cls": "ok",
-        "workflow": "CI",
+        "workflow": "Main Verify",
         "ref": "main",
-        "ranAt": "2026-09-21T15:35:59Z",
-        "url": "https://github.com/ReSerendipity/TTS_MultiModel/actions/runs/35620033133",
+        "ranAt": "2026-09-22T22:57:09Z",
+        "url": "https://github.com/ReSerendipity/DraftPeek/actions/runs/35795026797",
         "trend": [
           {
             "s": "completed",
             "c": "success",
-            "at": "2026-09-21T15:35:58Z"
-          },
-          {
-            "s": "in_progress",
-            "c": null,
-            "at": "2026-09-21T15:35:58Z"
-          },
-          {
-            "s": "in_progress",
-            "c": null,
-            "at": "2026-09-21T15:35:58Z"
+            "at": "2026-09-22T08:05:00Z"
           },
           {
             "s": "completed",
             "c": "success",
-            "at": "2026-09-21T15:35:58Z"
+            "at": "2026-09-22T11:57:28Z"
           },
           {
             "s": "completed",
             "c": "success",
-            "at": "2026-09-21T15:35:59Z"
+            "at": "2026-09-22T16:47:15Z"
+          },
+          {
+            "s": "completed",
+            "c": "success",
+            "at": "2026-09-22T20:01:57Z"
+          },
+          {
+            "s": "completed",
+            "c": "success",
+            "at": "2026-09-22T22:57:09Z"
           }
         ]
       },
-      "language": "Python",
-      "langColor": "#3572A5",
-      "traffic": null
+      "language": "Kotlin",
+      "langColor": "#A97BFF",
+      "traffic": null,
+      "local": {
+        "path": "C:\\Users\\Doro\\WorkBuddy\\2026-09-01-23-10-14\\DraftPeek",
+        "branch": "(detached)",
+        "head": "2039f36",
+        "dirty": false,
+        "dirtyCount": 0,
+        "ahead": null,
+        "behind": null,
+        "lastCommitAt": "2026-09-02T09:57:06+08:00",
+        "remoteUrl": "https://github.com/ReSerendipity/DraftPeek.git"
+      }
     },
     {
       "name": "hugging-face",
@@ -211,160 +810,18 @@
       },
       "language": "Python",
       "langColor": "#3572A5",
-      "traffic": null
-    },
-    {
-      "name": "health-info-card",
-      "url": "https://github.com/ReSerendipity/health-info-card",
-      "description": "安心牌 · 老人急救信息卡（FoloToy AI Passport 玩法）",
-      "visibility": "PUBLIC",
-      "isArchived": false,
-      "isFork": false,
-      "createdAt": "2026-09-21T07:48:21Z",
-      "pushedAt": "2026-09-21T13:19:31Z",
-      "stars": 0,
-      "forks": 0,
-      "openIssues": 0,
-      "openPRs": 0,
-      "branches": 3,
-      "defaultBranch": "health-info-official",
-      "license": "MIT",
-      "licenseUrl": "https://github.com/ReSerendipity/health-info-card/blob/health-info-official/LICENSE",
-      "releases": 0,
-      "latestRelease": null,
-      "ci": {
-        "state": "无 CI 记录",
-        "cls": "none",
-        "workflow": null,
-        "ref": null,
-        "ranAt": null,
-        "url": null,
-        "trend": []
-      },
-      "language": "C",
-      "langColor": "#555555",
-      "traffic": null
-    },
-    {
-      "name": "SeedVR2-lite",
-      "url": "https://github.com/ReSerendipity/SeedVR2-lite",
-      "description": "SeedVR2 视频/图像超分辨率修复工具箱：Tauri 桌面版（一键安装+增量更新）与网页版/便携包，支持 3B/7B/7B-Sharp、FP8、GPU Block Swap 省显存、一键与批量修复、5 种语言界面，无需 ComfyUI | SeedVR2 video & image super-resolution toolkit: Tauri desktop (one-click install + incremental updates) + web/portable, 3B/7B/7B-Sharp & FP8, GPU Block Swap, one-click & batch restore, 5-language UI, no ComfyUI",
-      "visibility": "PUBLIC",
-      "isArchived": false,
-      "isFork": false,
-      "createdAt": "2026-07-23T14:24:11Z",
-      "pushedAt": "2026-09-21T03:46:59Z",
-      "stars": 10,
-      "forks": 2,
-      "openIssues": 0,
-      "openPRs": 0,
-      "branches": 2,
-      "defaultBranch": "main",
-      "license": "Apache-2.0",
-      "licenseUrl": "https://github.com/ReSerendipity/SeedVR2-lite/blob/main/LICENSE",
-      "releases": 19,
-      "latestRelease": {
-        "tag": "v1.5.7",
-        "name": "SeedVR2 v1.5.7（增量更新版）",
-        "publishedAt": "2026-09-10T13:13:08Z",
-        "url": "https://github.com/ReSerendipity/SeedVR2-lite/releases/tag/v1.5.7"
-      },
-      "ci": {
-        "state": "通过",
-        "cls": "ok",
-        "workflow": "Dependency Audit",
-        "ref": "main",
-        "ranAt": "2026-09-21T11:21:21Z",
-        "url": "https://github.com/ReSerendipity/SeedVR2-lite/actions/runs/35593611751",
-        "trend": [
-          {
-            "s": "completed",
-            "c": "success",
-            "at": "2026-09-21T07:27:56Z"
-          },
-          {
-            "s": "completed",
-            "c": "success",
-            "at": "2026-09-21T08:03:51Z"
-          },
-          {
-            "s": "completed",
-            "c": "success",
-            "at": "2026-09-21T08:16:57Z"
-          },
-          {
-            "s": "completed",
-            "c": "success",
-            "at": "2026-09-21T09:34:59Z"
-          },
-          {
-            "s": "completed",
-            "c": "success",
-            "at": "2026-09-21T11:21:21Z"
-          }
-        ]
-      },
-      "language": "Python",
-      "langColor": "#3572A5",
-      "traffic": null
-    },
-    {
-      "name": "DraftPeek",
-      "url": "https://github.com/ReSerendipity/DraftPeek",
-      "description": "Android 原生代码/文本编辑器：内置终端、Markdown 预览、40+ 语言语法高亮，Jetpack Compose + 整洁架构，安全加固（反调试/完整性校验/加密）| Native Android code/text editor with built-in terminal, Markdown preview & 40+ language highlighting, Jetpack Compose, hardened",
-      "visibility": "PUBLIC",
-      "isArchived": false,
-      "isFork": false,
-      "createdAt": "2026-08-27T11:41:24Z",
-      "pushedAt": "2026-09-20T18:48:48Z",
-      "stars": 0,
-      "forks": 0,
-      "openIssues": 2,
-      "openPRs": 0,
-      "branches": 2,
-      "defaultBranch": "main",
-      "license": "Apache-2.0",
-      "licenseUrl": "https://github.com/ReSerendipity/DraftPeek/blob/main/LICENSE",
-      "releases": 1,
-      "latestRelease": null,
-      "ci": {
-        "state": "通过",
-        "cls": "ok",
-        "workflow": "Main Verify",
-        "ref": "main",
-        "ranAt": "2026-09-21T13:43:29Z",
-        "url": "https://github.com/ReSerendipity/DraftPeek/actions/runs/35607442723",
-        "trend": [
-          {
-            "s": "completed",
-            "c": "failure",
-            "at": "2026-09-21T07:28:09Z"
-          },
-          {
-            "s": "completed",
-            "c": "success",
-            "at": "2026-09-21T07:49:53Z"
-          },
-          {
-            "s": "completed",
-            "c": "success",
-            "at": "2026-09-21T08:09:04Z"
-          },
-          {
-            "s": "completed",
-            "c": "success",
-            "at": "2026-09-21T08:23:19Z"
-          },
-          {
-            "s": "completed",
-            "c": "success",
-            "at": "2026-09-21T13:43:29Z"
-          }
-        ]
-      },
-      "language": "Kotlin",
-      "langColor": "#A97BFF",
-      "traffic": null
+      "traffic": null,
+      "local": {
+        "path": "C:\\Users\\Doro\\Desktop\\TEST\\hugging-face",
+        "branch": "main",
+        "head": "40ff81c",
+        "dirty": false,
+        "dirtyCount": 0,
+        "ahead": 0,
+        "behind": 0,
+        "lastCommitAt": "2026-09-21T23:32:04+08:00",
+        "remoteUrl": "https://github.com/ReSerendipity/hugging-face.git"
+      }
     },
     {
       "name": "SpiritPal",
@@ -393,16 +850,11 @@
       "ci": {
         "state": "通过",
         "cls": "ok",
-        "workflow": "Deps Ecosystem Watch",
+        "workflow": "Stale 自动清理",
         "ref": "main",
-        "ranAt": "2026-09-21T10:04:09Z",
-        "url": "https://github.com/ReSerendipity/SpiritPal/actions/runs/35586724025",
+        "ranAt": "2026-09-22T08:23:17Z",
+        "url": "https://github.com/ReSerendipity/SpiritPal/actions/runs/35704523969",
         "trend": [
-          {
-            "s": "completed",
-            "c": "success",
-            "at": "2026-09-21T02:13:23Z"
-          },
           {
             "s": "completed",
             "c": "success",
@@ -422,12 +874,28 @@
             "s": "completed",
             "c": "success",
             "at": "2026-09-21T10:04:09Z"
+          },
+          {
+            "s": "completed",
+            "c": "success",
+            "at": "2026-09-22T08:23:17Z"
           }
         ]
       },
       "language": "TypeScript",
       "langColor": "#3178c6",
-      "traffic": null
+      "traffic": null,
+      "local": {
+        "path": "C:\\Users\\Doro\\WorkBuddy\\2026-09-14-11-08-22\\spiritpal_clone",
+        "branch": "ci/governance-spiritpal",
+        "head": "e967b4d",
+        "dirty": false,
+        "dirtyCount": 0,
+        "ahead": 0,
+        "behind": 0,
+        "lastCommitAt": "2026-09-14T20:47:39+08:00",
+        "remoteUrl": "https://github.com/ReSerendipity/SpiritPal.git"
+      }
     },
     {
       "name": "MiniMax-H3-lite",
@@ -454,18 +922,13 @@
         "url": "https://github.com/ReSerendipity/MiniMax-H3-lite/releases/tag/v2.5.0"
       },
       "ci": {
-        "state": "失败",
-        "cls": "fail",
-        "workflow": "Benchmarks",
+        "state": "通过",
+        "cls": "ok",
+        "workflow": "Stale 自动清理",
         "ref": "main",
-        "ranAt": "2026-09-21T12:14:34Z",
-        "url": "https://github.com/ReSerendipity/MiniMax-H3-lite/actions/runs/35598402835",
+        "ranAt": "2026-09-22T08:21:34Z",
+        "url": "https://github.com/ReSerendipity/MiniMax-H3-lite/actions/runs/35704367065",
         "trend": [
-          {
-            "s": "completed",
-            "c": "success",
-            "at": "2026-09-21T08:25:35Z"
-          },
           {
             "s": "completed",
             "c": "success",
@@ -485,12 +948,28 @@
             "s": "completed",
             "c": "failure",
             "at": "2026-09-21T12:14:34Z"
+          },
+          {
+            "s": "completed",
+            "c": "success",
+            "at": "2026-09-22T08:21:34Z"
           }
         ]
       },
       "language": "Python",
       "langColor": "#3572A5",
-      "traffic": null
+      "traffic": null,
+      "local": {
+        "path": "C:\\Users\\Doro\\WorkBuddy AI\\2026-09-02-17-36-54\\_fix\\MiniMax-H3-lite",
+        "branch": "main",
+        "head": "f28d095",
+        "dirty": false,
+        "dirtyCount": 0,
+        "ahead": 3,
+        "behind": 0,
+        "lastCommitAt": "2026-09-03T09:24:54+08:00",
+        "remoteUrl": "https://github.com/ReSerendipity/MiniMax-H3-lite.git"
+      }
     },
     {
       "name": "Image_MultiModel",
@@ -517,23 +996,13 @@
         "url": "https://github.com/ReSerendipity/Image_MultiModel/releases/tag/v1.2.2"
       },
       "ci": {
-        "state": "失败",
-        "cls": "fail",
-        "workflow": "Security",
+        "state": "通过",
+        "cls": "ok",
+        "workflow": "Stale 自动清理",
         "ref": "main",
-        "ranAt": "2026-09-21T12:26:27Z",
-        "url": "https://github.com/ReSerendipity/Image_MultiModel/actions/runs/35599549421",
+        "ranAt": "2026-09-22T08:24:05Z",
+        "url": "https://github.com/ReSerendipity/Image_MultiModel/actions/runs/35704596759",
         "trend": [
-          {
-            "s": "completed",
-            "c": "success",
-            "at": "2026-09-21T07:38:02Z"
-          },
-          {
-            "s": "completed",
-            "c": "success",
-            "at": "2026-09-21T08:06:54Z"
-          },
           {
             "s": "completed",
             "c": "success",
@@ -548,12 +1017,33 @@
             "s": "completed",
             "c": "failure",
             "at": "2026-09-21T12:26:27Z"
+          },
+          {
+            "s": "completed",
+            "c": "failure",
+            "at": "2026-09-22T07:08:27Z"
+          },
+          {
+            "s": "completed",
+            "c": "success",
+            "at": "2026-09-22T08:24:05Z"
           }
         ]
       },
       "language": "Python",
       "langColor": "#3572A5",
-      "traffic": null
+      "traffic": null,
+      "local": {
+        "path": "C:\\Users\\Doro\\Image_MultiModel",
+        "branch": "chore/add-codeowners",
+        "head": "bb99535",
+        "dirty": true,
+        "dirtyCount": 4,
+        "ahead": 0,
+        "behind": 0,
+        "lastCommitAt": "2026-09-20T20:29:22+08:00",
+        "remoteUrl": "https://github.com/ReSerendipity/Image_MultiModel.git"
+      }
     },
     {
       "name": ".github",
@@ -585,7 +1075,8 @@
       },
       "language": null,
       "langColor": "#8b949e",
-      "traffic": null
+      "traffic": null,
+      "local": null
     },
     {
       "name": "Lineart_Painter",
@@ -633,7 +1124,18 @@
       },
       "language": "Python",
       "langColor": "#3572A5",
-      "traffic": null
+      "traffic": null,
+      "local": {
+        "path": "C:\\Users\\Doro\\WorkBuddy\\2026-09-13-19-55-29\\verify_staging\\verify_lineart",
+        "branch": null,
+        "head": null,
+        "dirty": false,
+        "dirtyCount": 0,
+        "ahead": null,
+        "behind": null,
+        "lastCommitAt": null,
+        "remoteUrl": "https://github.com/ReSerendipity/Lineart_Painter.git"
+      }
     },
     {
       "name": "Card-Studio",
@@ -696,7 +1198,18 @@
       },
       "language": "JavaScript",
       "langColor": "#f1e05a",
-      "traffic": null
+      "traffic": null,
+      "local": {
+        "path": "C:\\Users\\Doro\\WorkBuddy\\2026-09-13-19-55-29\\cs_clone",
+        "branch": "main",
+        "head": "3fae667",
+        "dirty": false,
+        "dirtyCount": 0,
+        "ahead": 5,
+        "behind": 0,
+        "lastCommitAt": "2026-09-13T23:41:29+08:00",
+        "remoteUrl": "https://github.com/ReSerendipity/Card-Studio.git"
+      }
     },
     {
       "name": "ReSerendipity",
@@ -728,7 +1241,8 @@
       },
       "language": null,
       "langColor": "#8b949e",
-      "traffic": null
+      "traffic": null,
+      "local": null
     },
     {
       "name": "RTX_VSR-lite",
@@ -760,7 +1274,18 @@
       },
       "language": "Python",
       "langColor": "#3572A5",
-      "traffic": null
+      "traffic": null,
+      "local": {
+        "path": "C:\\Users\\Doro\\Desktop\\TEST\\RTX_VSR-lite",
+        "branch": "main",
+        "head": "d71fe3a",
+        "dirty": false,
+        "dirtyCount": 0,
+        "ahead": 0,
+        "behind": 0,
+        "lastCommitAt": "2026-09-12T23:40:20+08:00",
+        "remoteUrl": "https://gh-proxy.com/https://github.com/ReSerendipity/RTX_VSR-lite.git"
+      }
     },
     {
       "name": "Multi-Tracker",
@@ -792,65 +1317,18 @@
       },
       "language": "Python",
       "langColor": "#3572A5",
-      "traffic": null
-    },
-    {
-      "name": "Unfading-Wall",
-      "url": "https://github.com/ReSerendipity/Unfading-Wall",
-      "description": "黑板·上的话 — 教师节师生印象墙：学生手书的信贴上老师的黑板墙，零后端链接分享（Apache-2.0）",
-      "visibility": "PUBLIC",
-      "isArchived": false,
-      "isFork": false,
-      "createdAt": "2026-09-08T12:56:48Z",
-      "pushedAt": "2026-09-08T13:28:03Z",
-      "stars": 0,
-      "forks": 0,
-      "openIssues": 0,
-      "openPRs": 0,
-      "branches": 1,
-      "defaultBranch": "main",
-      "license": "Apache-2.0",
-      "licenseUrl": "https://github.com/ReSerendipity/Unfading-Wall/blob/main/LICENSE",
-      "releases": 1,
-      "latestRelease": {
-        "tag": "v1.0.0",
-        "name": "v1.0.0 黑板·上的话 · 师者印象墙",
-        "publishedAt": "2026-09-08T13:21:59Z",
-        "url": "https://github.com/ReSerendipity/Unfading-Wall/releases/tag/v1.0.0"
-      },
-      "ci": {
-        "state": "通过",
-        "cls": "ok",
-        "workflow": "pages build and deployment",
-        "ref": "main",
-        "ranAt": "2026-09-08T13:28:05Z",
-        "url": "https://github.com/ReSerendipity/Unfading-Wall/actions/runs/34232137433",
-        "trend": [
-          {
-            "s": "completed",
-            "c": "cancelled",
-            "at": "2026-09-08T13:21:47Z"
-          },
-          {
-            "s": "completed",
-            "c": "success",
-            "at": "2026-09-08T13:21:59Z"
-          },
-          {
-            "s": "completed",
-            "c": "success",
-            "at": "2026-09-08T13:23:10Z"
-          },
-          {
-            "s": "completed",
-            "c": "success",
-            "at": "2026-09-08T13:28:05Z"
-          }
-        ]
-      },
-      "language": "JavaScript",
-      "langColor": "#f1e05a",
-      "traffic": null
+      "traffic": null,
+      "local": {
+        "path": "C:\\Users\\Doro\\Desktop\\TEST\\Multi-Tracker",
+        "branch": "main",
+        "head": "331e296",
+        "dirty": false,
+        "dirtyCount": 0,
+        "ahead": 0,
+        "behind": 0,
+        "lastCommitAt": "2026-09-09T17:30:35+08:00",
+        "remoteUrl": "https://gh-proxy.com/https://github.com/ReSerendipity/Multi-Tracker.git"
+      }
     },
     {
       "name": "ComfyUI-BatchPromptLoader",
@@ -888,7 +1366,18 @@
       },
       "language": "Python",
       "langColor": "#3572A5",
-      "traffic": null
+      "traffic": null,
+      "local": {
+        "path": "C:\\Users\\Doro\\WorkBuddy\\2026-09-02-16-00-54\\ComfyUI-BatchPromptLoader",
+        "branch": "master",
+        "head": "c9c9c76",
+        "dirty": false,
+        "dirtyCount": 0,
+        "ahead": 3,
+        "behind": 0,
+        "lastCommitAt": "2026-09-02T17:16:58+08:00",
+        "remoteUrl": "https://github.com/ReSerendipity/ComfyUI-BatchPromptLoader.git"
+      }
     },
     {
       "name": "ComfyUI-Manager",
@@ -920,7 +1409,1260 @@
       },
       "language": "Python",
       "langColor": "#3572A5",
-      "traffic": null
+      "traffic": null,
+      "local": {
+        "path": "C:\\Users\\Doro\\WorkBuddy\\2026-09-02-16-00-54\\ComfyUI-Manager",
+        "branch": "add-batch-prompt-loader",
+        "head": "d3b0e1be",
+        "dirty": false,
+        "dirtyCount": 0,
+        "ahead": null,
+        "behind": null,
+        "lastCommitAt": "2026-09-02T16:33:26+08:00",
+        "remoteUrl": "https://github.com/Comfy-Org/ComfyUI-Manager.git"
+      }
     }
-  ]
+  ],
+  "localScan": {
+    "scannedAt": "2026-09-23T00:18:10.771Z",
+    "roots": [
+      "C:\\Users\\Doro",
+      "C:\\Users\\Doro\\Desktop",
+      "C:\\Users\\Doro\\Documents",
+      "C:\\Users\\Doro\\Downloads"
+    ],
+    "depth": 4,
+    "count": 44,
+    "repos": [
+      {
+        "path": "C:\\Users\\Doro\\APP\\ComfyUI-aki-v3\\ComfyUI",
+        "name": "ComfyUI",
+        "remoteUrl": "https://github.com/Comfy-Org/ComfyUI",
+        "remotes": [
+          {
+            "name": "origin",
+            "url": "https://github.com/Comfy-Org/ComfyUI"
+          }
+        ],
+        "github": {
+          "owner": "Comfy-Org",
+          "repo": "ComfyUI",
+          "host": "github.com",
+          "isGitHub": true
+        },
+        "branch": "master",
+        "head": "c194dd00c",
+        "lastCommitAt": "2026-09-20T10:31:55-07:00",
+        "dirty": true,
+        "dirtyCount": 3,
+        "ahead": 0,
+        "behind": 1,
+        "bare": false,
+        "error": null,
+        "matched": false,
+        "matchType": null,
+        "matchedRepo": null
+      },
+      {
+        "path": "C:\\Users\\Doro\\AppData\\Local\\Temp\\antigravity-hans-src",
+        "name": "antigravity-hans-src",
+        "remoteUrl": null,
+        "remotes": [],
+        "github": null,
+        "branch": null,
+        "head": null,
+        "lastCommitAt": null,
+        "dirty": false,
+        "dirtyCount": 0,
+        "ahead": null,
+        "behind": null,
+        "bare": false,
+        "error": null,
+        "matched": false,
+        "matchType": null,
+        "matchedRepo": null
+      },
+      {
+        "path": "C:\\Users\\Doro\\AppData\\Local\\Temp\\lca_tmp",
+        "name": "lca_tmp",
+        "remoteUrl": null,
+        "remotes": [],
+        "github": null,
+        "branch": null,
+        "head": null,
+        "lastCommitAt": null,
+        "dirty": false,
+        "dirtyCount": 0,
+        "ahead": null,
+        "behind": null,
+        "bare": false,
+        "error": null,
+        "matched": false,
+        "matchType": null,
+        "matchedRepo": null
+      },
+      {
+        "path": "C:\\Users\\Doro\\AppData\\Local\\Temp\\numz",
+        "name": "numz",
+        "remoteUrl": null,
+        "remotes": [],
+        "github": null,
+        "branch": null,
+        "head": null,
+        "lastCommitAt": null,
+        "dirty": false,
+        "dirtyCount": 0,
+        "ahead": null,
+        "behind": null,
+        "bare": false,
+        "error": null,
+        "matched": false,
+        "matchType": null,
+        "matchedRepo": null
+      },
+      {
+        "path": "C:\\Users\\Doro\\AppData\\Local\\Temp\\seedvr2",
+        "name": "seedvr2",
+        "remoteUrl": null,
+        "remotes": [],
+        "github": null,
+        "branch": null,
+        "head": null,
+        "lastCommitAt": null,
+        "dirty": false,
+        "dirtyCount": 0,
+        "ahead": null,
+        "behind": null,
+        "bare": false,
+        "error": null,
+        "matched": false,
+        "matchType": null,
+        "matchedRepo": null
+      },
+      {
+        "path": "C:\\Users\\Doro\\AppData\\Local\\Temp\\seedvr2_upstream_sync",
+        "name": "seedvr2_upstream_sync",
+        "remoteUrl": null,
+        "remotes": [],
+        "github": null,
+        "branch": null,
+        "head": null,
+        "lastCommitAt": null,
+        "dirty": false,
+        "dirtyCount": 0,
+        "ahead": null,
+        "behind": null,
+        "bare": false,
+        "error": null,
+        "matched": false,
+        "matchType": null,
+        "matchedRepo": null
+      },
+      {
+        "path": "C:\\Users\\Doro\\AppData\\Local\\Temp\\sv2c2",
+        "name": "sv2c2",
+        "remoteUrl": null,
+        "remotes": [],
+        "github": null,
+        "branch": null,
+        "head": null,
+        "lastCommitAt": null,
+        "dirty": false,
+        "dirtyCount": 0,
+        "ahead": null,
+        "behind": null,
+        "bare": false,
+        "error": null,
+        "matched": false,
+        "matchType": null,
+        "matchedRepo": null
+      },
+      {
+        "path": "C:\\Users\\Doro\\AppData\\Local\\Temp\\ttsmm_wt3",
+        "name": "ttsmm_wt3",
+        "remoteUrl": "https://github.com/ReSerendipity/TTS_MultiModel.git",
+        "remotes": [
+          {
+            "name": "origin",
+            "url": "https://github.com/ReSerendipity/TTS_MultiModel.git"
+          }
+        ],
+        "github": {
+          "owner": "ReSerendipity",
+          "repo": "TTS_MultiModel",
+          "host": "github.com",
+          "isGitHub": true
+        },
+        "branch": "fix/k8s-image-name",
+        "head": "a239f39",
+        "lastCommitAt": "2026-09-23T08:17:02+08:00",
+        "dirty": false,
+        "dirtyCount": 0,
+        "ahead": null,
+        "behind": null,
+        "bare": false,
+        "error": null,
+        "matched": true,
+        "matchType": "owner/repo",
+        "matchedRepo": "TTS_MultiModel"
+      },
+      {
+        "path": "C:\\Users\\Doro\\Desktop\\TEST\\bilibili-follow-manager",
+        "name": "bilibili-follow-manager",
+        "remoteUrl": "https://github.com/ReSerendipity/bilibili-follow-manager.git",
+        "remotes": [
+          {
+            "name": "origin",
+            "url": "https://github.com/ReSerendipity/bilibili-follow-manager.git"
+          }
+        ],
+        "github": {
+          "owner": "ReSerendipity",
+          "repo": "bilibili-follow-manager",
+          "host": "github.com",
+          "isGitHub": true
+        },
+        "branch": "main",
+        "head": "b879412",
+        "lastCommitAt": "2026-09-22T20:10:58+08:00",
+        "dirty": false,
+        "dirtyCount": 0,
+        "ahead": 0,
+        "behind": 0,
+        "bare": false,
+        "error": null,
+        "matched": true,
+        "matchType": "owner/repo",
+        "matchedRepo": "bilibili-follow-manager"
+      },
+      {
+        "path": "C:\\Users\\Doro\\Desktop\\TEST\\Card-Studio",
+        "name": "Card-Studio",
+        "remoteUrl": "https://gh-proxy.com/https://github.com/ReSerendipity/Card-Studio.git",
+        "remotes": [
+          {
+            "name": "origin",
+            "url": "https://gh-proxy.com/https://github.com/ReSerendipity/Card-Studio.git"
+          }
+        ],
+        "github": {
+          "owner": "https:",
+          "repo": "github.com",
+          "host": "gh-proxy.com",
+          "isGitHub": false
+        },
+        "branch": "main",
+        "head": "3ed1a0b",
+        "lastCommitAt": "2026-09-16T19:32:18+08:00",
+        "dirty": false,
+        "dirtyCount": 0,
+        "ahead": 0,
+        "behind": 0,
+        "bare": false,
+        "error": null,
+        "matched": true,
+        "matchType": "name",
+        "matchedRepo": "Card-Studio"
+      },
+      {
+        "path": "C:\\Users\\Doro\\Desktop\\TEST\\github-repo-scan",
+        "name": "github-repo-scan",
+        "remoteUrl": "https://github.com/ReSerendipity/github-repo-scan.git",
+        "remotes": [
+          {
+            "name": "origin",
+            "url": "https://github.com/ReSerendipity/github-repo-scan.git"
+          }
+        ],
+        "github": {
+          "owner": "ReSerendipity",
+          "repo": "github-repo-scan",
+          "host": "github.com",
+          "isGitHub": true
+        },
+        "branch": "main",
+        "head": "49b6dd4",
+        "lastCommitAt": "2026-09-22T00:08:49+08:00",
+        "dirty": true,
+        "dirtyCount": 8,
+        "ahead": 2,
+        "behind": 1,
+        "bare": false,
+        "error": null,
+        "matched": true,
+        "matchType": "owner/repo",
+        "matchedRepo": "github-repo-scan"
+      },
+      {
+        "path": "C:\\Users\\Doro\\Desktop\\TEST\\health-info-card",
+        "name": "health-info-card",
+        "remoteUrl": "https://gh-proxy.com/https://github.com/ReSerendipity/health-info-card.git",
+        "remotes": [
+          {
+            "name": "origin",
+            "url": "https://gh-proxy.com/https://github.com/ReSerendipity/health-info-card.git"
+          }
+        ],
+        "github": {
+          "owner": "https:",
+          "repo": "github.com",
+          "host": "gh-proxy.com",
+          "isGitHub": false
+        },
+        "branch": "health-info-official",
+        "head": "d7e4a35",
+        "lastCommitAt": "2026-09-22T18:49:47+08:00",
+        "dirty": false,
+        "dirtyCount": 0,
+        "ahead": 0,
+        "behind": 0,
+        "bare": false,
+        "error": null,
+        "matched": true,
+        "matchType": "name",
+        "matchedRepo": "health-info-card"
+      },
+      {
+        "path": "C:\\Users\\Doro\\Desktop\\TEST\\hugging-face",
+        "name": "hugging-face",
+        "remoteUrl": "https://github.com/ReSerendipity/hugging-face.git",
+        "remotes": [
+          {
+            "name": "origin",
+            "url": "https://github.com/ReSerendipity/hugging-face.git"
+          }
+        ],
+        "github": {
+          "owner": "ReSerendipity",
+          "repo": "hugging-face",
+          "host": "github.com",
+          "isGitHub": true
+        },
+        "branch": "main",
+        "head": "40ff81c",
+        "lastCommitAt": "2026-09-21T23:32:04+08:00",
+        "dirty": false,
+        "dirtyCount": 0,
+        "ahead": 0,
+        "behind": 0,
+        "bare": false,
+        "error": null,
+        "matched": true,
+        "matchType": "owner/repo",
+        "matchedRepo": "hugging-face"
+      },
+      {
+        "path": "C:\\Users\\Doro\\Desktop\\TEST\\image-scrapers",
+        "name": "image-scrapers",
+        "remoteUrl": "https://github.com/ReSerendipity/image-scrapers.git",
+        "remotes": [
+          {
+            "name": "origin",
+            "url": "https://github.com/ReSerendipity/image-scrapers.git"
+          }
+        ],
+        "github": {
+          "owner": "ReSerendipity",
+          "repo": "image-scrapers",
+          "host": "github.com",
+          "isGitHub": true
+        },
+        "branch": "main",
+        "head": "9e54bde",
+        "lastCommitAt": "2026-09-22T17:07:26+08:00",
+        "dirty": false,
+        "dirtyCount": 0,
+        "ahead": null,
+        "behind": null,
+        "bare": false,
+        "error": null,
+        "matched": true,
+        "matchType": "owner/repo",
+        "matchedRepo": "image-scrapers"
+      },
+      {
+        "path": "C:\\Users\\Doro\\Desktop\\TEST\\Lineart_Painter",
+        "name": "Lineart_Painter",
+        "remoteUrl": "https://gh-proxy.com/https://github.com/ReSerendipity/Lineart_Painter.git",
+        "remotes": [
+          {
+            "name": "origin",
+            "url": "https://gh-proxy.com/https://github.com/ReSerendipity/Lineart_Painter.git"
+          }
+        ],
+        "github": {
+          "owner": "https:",
+          "repo": "github.com",
+          "host": "gh-proxy.com",
+          "isGitHub": false
+        },
+        "branch": "main",
+        "head": "4f29b8b",
+        "lastCommitAt": "2026-09-16T19:32:22+08:00",
+        "dirty": false,
+        "dirtyCount": 0,
+        "ahead": 0,
+        "behind": 0,
+        "bare": false,
+        "error": null,
+        "matched": true,
+        "matchType": "name",
+        "matchedRepo": "Lineart_Painter"
+      },
+      {
+        "path": "C:\\Users\\Doro\\Desktop\\TEST\\Multi-Tracker",
+        "name": "Multi-Tracker",
+        "remoteUrl": "https://gh-proxy.com/https://github.com/ReSerendipity/Multi-Tracker.git",
+        "remotes": [
+          {
+            "name": "origin",
+            "url": "https://gh-proxy.com/https://github.com/ReSerendipity/Multi-Tracker.git"
+          }
+        ],
+        "github": {
+          "owner": "https:",
+          "repo": "github.com",
+          "host": "gh-proxy.com",
+          "isGitHub": false
+        },
+        "branch": "main",
+        "head": "331e296",
+        "lastCommitAt": "2026-09-09T17:30:35+08:00",
+        "dirty": false,
+        "dirtyCount": 0,
+        "ahead": 0,
+        "behind": 0,
+        "bare": false,
+        "error": null,
+        "matched": true,
+        "matchType": "name",
+        "matchedRepo": "Multi-Tracker"
+      },
+      {
+        "path": "C:\\Users\\Doro\\Desktop\\TEST\\nekogal-dl",
+        "name": "nekogal-dl",
+        "remoteUrl": "https://github.com/ReSerendipity/nekogal-dl.git",
+        "remotes": [
+          {
+            "name": "origin",
+            "url": "https://github.com/ReSerendipity/nekogal-dl.git"
+          }
+        ],
+        "github": {
+          "owner": "ReSerendipity",
+          "repo": "nekogal-dl",
+          "host": "github.com",
+          "isGitHub": true
+        },
+        "branch": "main",
+        "head": "cb9e0d1",
+        "lastCommitAt": "2026-09-21T23:08:46+08:00",
+        "dirty": false,
+        "dirtyCount": 0,
+        "ahead": null,
+        "behind": null,
+        "bare": false,
+        "error": null,
+        "matched": true,
+        "matchType": "owner/repo",
+        "matchedRepo": "nekogal-dl"
+      },
+      {
+        "path": "C:\\Users\\Doro\\Desktop\\TEST\\offer-landing-kit",
+        "name": "offer-landing-kit",
+        "remoteUrl": "https://gh-proxy.com/https://github.com/ReSerendipity/offer-landing-kit.git",
+        "remotes": [
+          {
+            "name": "origin",
+            "url": "https://gh-proxy.com/https://github.com/ReSerendipity/offer-landing-kit.git"
+          }
+        ],
+        "github": {
+          "owner": "https:",
+          "repo": "github.com",
+          "host": "gh-proxy.com",
+          "isGitHub": false
+        },
+        "branch": "main",
+        "head": "7712a55",
+        "lastCommitAt": "2026-09-22T18:47:00+08:00",
+        "dirty": false,
+        "dirtyCount": 0,
+        "ahead": 0,
+        "behind": 0,
+        "bare": false,
+        "error": null,
+        "matched": true,
+        "matchType": "name",
+        "matchedRepo": "offer-landing-kit"
+      },
+      {
+        "path": "C:\\Users\\Doro\\Desktop\\TEST\\RTX_VSR-lite",
+        "name": "RTX_VSR-lite",
+        "remoteUrl": "https://gh-proxy.com/https://github.com/ReSerendipity/RTX_VSR-lite.git",
+        "remotes": [
+          {
+            "name": "origin",
+            "url": "https://gh-proxy.com/https://github.com/ReSerendipity/RTX_VSR-lite.git"
+          }
+        ],
+        "github": {
+          "owner": "https:",
+          "repo": "github.com",
+          "host": "gh-proxy.com",
+          "isGitHub": false
+        },
+        "branch": "main",
+        "head": "d71fe3a",
+        "lastCommitAt": "2026-09-12T23:40:20+08:00",
+        "dirty": false,
+        "dirtyCount": 0,
+        "ahead": 0,
+        "behind": 0,
+        "bare": false,
+        "error": null,
+        "matched": true,
+        "matchType": "name",
+        "matchedRepo": "RTX_VSR-lite"
+      },
+      {
+        "path": "C:\\Users\\Doro\\Desktop\\TEST\\Unfading-Wall",
+        "name": "Unfading-Wall",
+        "remoteUrl": "https://ghfast.top/https://github.com/ReSerendipity/Unfading-Wall.git",
+        "remotes": [
+          {
+            "name": "origin",
+            "url": "https://ghfast.top/https://github.com/ReSerendipity/Unfading-Wall.git"
+          }
+        ],
+        "github": {
+          "owner": "https:",
+          "repo": "github.com",
+          "host": "ghfast.top",
+          "isGitHub": false
+        },
+        "branch": "main",
+        "head": "5968419",
+        "lastCommitAt": "2026-09-22T20:05:07+08:00",
+        "dirty": false,
+        "dirtyCount": 0,
+        "ahead": 0,
+        "behind": 0,
+        "bare": false,
+        "error": null,
+        "matched": true,
+        "matchType": "name",
+        "matchedRepo": "Unfading-Wall"
+      },
+      {
+        "path": "C:\\Users\\Doro\\DraftPeek",
+        "name": "DraftPeek",
+        "remoteUrl": "https://github.com/ReSerendipity/DraftPeek.git",
+        "remotes": [
+          {
+            "name": "origin",
+            "url": "https://github.com/ReSerendipity/DraftPeek.git"
+          }
+        ],
+        "github": {
+          "owner": "ReSerendipity",
+          "repo": "DraftPeek",
+          "host": "github.com",
+          "isGitHub": true
+        },
+        "branch": "main",
+        "head": "3e3ba92",
+        "lastCommitAt": "2026-09-22T13:49:10+08:00",
+        "dirty": true,
+        "dirtyCount": 10,
+        "ahead": 0,
+        "behind": 0,
+        "bare": false,
+        "error": null,
+        "matched": true,
+        "matchType": "owner/repo",
+        "matchedRepo": "DraftPeek"
+      },
+      {
+        "path": "C:\\Users\\Doro\\GalgameShell",
+        "name": "GalgameShell",
+        "remoteUrl": "https://github.com/ReSerendipity/GalgameShell.git",
+        "remotes": [
+          {
+            "name": "origin",
+            "url": "https://github.com/ReSerendipity/GalgameShell.git"
+          },
+          {
+            "name": "upstream",
+            "url": "https://github.com/brunodev85/winlator-app"
+          }
+        ],
+        "github": {
+          "owner": "ReSerendipity",
+          "repo": "GalgameShell",
+          "host": "github.com",
+          "isGitHub": true
+        },
+        "branch": "galgame",
+        "head": "9a10e95",
+        "lastCommitAt": "2026-09-22T22:11:49+08:00",
+        "dirty": true,
+        "dirtyCount": 3,
+        "ahead": 0,
+        "behind": 0,
+        "bare": false,
+        "error": null,
+        "matched": true,
+        "matchType": "owner/repo",
+        "matchedRepo": "GalgameShell"
+      },
+      {
+        "path": "C:\\Users\\Doro\\GalgameShell.bak",
+        "name": "GalgameShell.bak",
+        "remoteUrl": "https://github.com/ReSerendipity/GalgameShell.bak.git",
+        "remotes": [
+          {
+            "name": "origin",
+            "url": "https://github.com/ReSerendipity/GalgameShell.bak.git"
+          },
+          {
+            "name": "upstream",
+            "url": "https://github.com/brunodev85/winlator-app"
+          }
+        ],
+        "github": {
+          "owner": "ReSerendipity",
+          "repo": "GalgameShell.bak",
+          "host": "github.com",
+          "isGitHub": true
+        },
+        "branch": "main",
+        "head": "1f1c841",
+        "lastCommitAt": "2026-09-22T20:05:36+08:00",
+        "dirty": true,
+        "dirtyCount": 1,
+        "ahead": null,
+        "behind": null,
+        "bare": false,
+        "error": null,
+        "matched": true,
+        "matchType": "owner/repo",
+        "matchedRepo": "GalgameShell.bak"
+      },
+      {
+        "path": "C:\\Users\\Doro\\Image_MultiModel",
+        "name": "Image_MultiModel",
+        "remoteUrl": "https://github.com/ReSerendipity/Image_MultiModel.git",
+        "remotes": [
+          {
+            "name": "origin",
+            "url": "https://github.com/ReSerendipity/Image_MultiModel.git"
+          }
+        ],
+        "github": {
+          "owner": "ReSerendipity",
+          "repo": "Image_MultiModel",
+          "host": "github.com",
+          "isGitHub": true
+        },
+        "branch": "chore/add-codeowners",
+        "head": "bb99535",
+        "lastCommitAt": "2026-09-20T20:29:22+08:00",
+        "dirty": true,
+        "dirtyCount": 4,
+        "ahead": 0,
+        "behind": 0,
+        "bare": false,
+        "error": null,
+        "matched": true,
+        "matchType": "owner/repo",
+        "matchedRepo": "Image_MultiModel"
+      },
+      {
+        "path": "C:\\Users\\Doro\\MiniMax-H3-lite",
+        "name": "MiniMax-H3-lite",
+        "remoteUrl": "https://github.com/ReSerendipity/MiniMax-H3-lite.git",
+        "remotes": [
+          {
+            "name": "origin",
+            "url": "https://github.com/ReSerendipity/MiniMax-H3-lite.git"
+          }
+        ],
+        "github": {
+          "owner": "ReSerendipity",
+          "repo": "MiniMax-H3-lite",
+          "host": "github.com",
+          "isGitHub": true
+        },
+        "branch": "main",
+        "head": "999a840",
+        "lastCommitAt": "2026-09-20T15:54:57Z",
+        "dirty": false,
+        "dirtyCount": 0,
+        "ahead": 0,
+        "behind": 0,
+        "bare": false,
+        "error": null,
+        "matched": true,
+        "matchType": "owner/repo",
+        "matchedRepo": "MiniMax-H3-lite"
+      },
+      {
+        "path": "C:\\Users\\Doro\\SeedVR2-lite",
+        "name": "SeedVR2-lite",
+        "remoteUrl": "https://github.com/ReSerendipity/SeedVR2-lite.git",
+        "remotes": [
+          {
+            "name": "origin",
+            "url": "https://github.com/ReSerendipity/SeedVR2-lite.git"
+          },
+          {
+            "name": "testremote",
+            "url": "C:\\Users\\Doro\\sv2-prepush-remote"
+          }
+        ],
+        "github": {
+          "owner": "ReSerendipity",
+          "repo": "SeedVR2-lite",
+          "host": "github.com",
+          "isGitHub": true
+        },
+        "branch": "main",
+        "head": "37deb57",
+        "lastCommitAt": "2026-09-21T23:27:02+08:00",
+        "dirty": true,
+        "dirtyCount": 22,
+        "ahead": 1,
+        "behind": 3,
+        "bare": false,
+        "error": null,
+        "matched": true,
+        "matchType": "owner/repo",
+        "matchedRepo": "SeedVR2-lite"
+      },
+      {
+        "path": "C:\\Users\\Doro\\SpiritPal",
+        "name": "SpiritPal",
+        "remoteUrl": "https://github.com/ReSerendipity/SpiritPal.git",
+        "remotes": [
+          {
+            "name": "origin",
+            "url": "https://github.com/ReSerendipity/SpiritPal.git"
+          }
+        ],
+        "github": {
+          "owner": "ReSerendipity",
+          "repo": "SpiritPal",
+          "host": "github.com",
+          "isGitHub": true
+        },
+        "branch": "chore/add-codeowners",
+        "head": "65b11a1",
+        "lastCommitAt": "2026-09-20T20:23:19+08:00",
+        "dirty": true,
+        "dirtyCount": 48,
+        "ahead": 0,
+        "behind": 0,
+        "bare": false,
+        "error": null,
+        "matched": true,
+        "matchType": "owner/repo",
+        "matchedRepo": "SpiritPal"
+      },
+      {
+        "path": "C:\\Users\\Doro\\TTS_MultiModel",
+        "name": "TTS_MultiModel",
+        "remoteUrl": "https://github.com/ReSerendipity/TTS_MultiModel.git",
+        "remotes": [
+          {
+            "name": "origin",
+            "url": "https://github.com/ReSerendipity/TTS_MultiModel.git"
+          }
+        ],
+        "github": {
+          "owner": "ReSerendipity",
+          "repo": "TTS_MultiModel",
+          "host": "github.com",
+          "isGitHub": true
+        },
+        "branch": "ci/rp-exclude-paths",
+        "head": "0c1aba3",
+        "lastCommitAt": "2026-09-22T22:23:23+08:00",
+        "dirty": true,
+        "dirtyCount": 38,
+        "ahead": null,
+        "behind": null,
+        "bare": false,
+        "error": null,
+        "matched": true,
+        "matchType": "owner/repo",
+        "matchedRepo": "TTS_MultiModel"
+      },
+      {
+        "path": "C:\\Users\\Doro\\Unity",
+        "name": "Unity",
+        "remoteUrl": "https://github.com/ReSerendipity/Unity.git",
+        "remotes": [
+          {
+            "name": "origin",
+            "url": "https://github.com/ReSerendipity/Unity.git"
+          }
+        ],
+        "github": {
+          "owner": "ReSerendipity",
+          "repo": "Unity",
+          "host": "github.com",
+          "isGitHub": true
+        },
+        "branch": "master",
+        "head": "2f7f435",
+        "lastCommitAt": "2026-09-22T22:36:40+08:00",
+        "dirty": false,
+        "dirtyCount": 0,
+        "ahead": null,
+        "behind": null,
+        "bare": false,
+        "error": null,
+        "matched": true,
+        "matchType": "owner/repo",
+        "matchedRepo": "Unity"
+      },
+      {
+        "path": "C:\\Users\\Doro\\WorkBuddy\\2026-09-01-23-10-14\\DraftPeek",
+        "name": "DraftPeek",
+        "remoteUrl": "https://github.com/ReSerendipity/DraftPeek.git",
+        "remotes": [
+          {
+            "name": "origin",
+            "url": "https://github.com/ReSerendipity/DraftPeek.git"
+          }
+        ],
+        "github": {
+          "owner": "ReSerendipity",
+          "repo": "DraftPeek",
+          "host": "github.com",
+          "isGitHub": true
+        },
+        "branch": "(detached)",
+        "head": "2039f36",
+        "lastCommitAt": "2026-09-02T09:57:06+08:00",
+        "dirty": false,
+        "dirtyCount": 0,
+        "ahead": null,
+        "behind": null,
+        "bare": false,
+        "error": null,
+        "matched": true,
+        "matchType": "owner/repo",
+        "matchedRepo": "DraftPeek"
+      },
+      {
+        "path": "C:\\Users\\Doro\\WorkBuddy\\2026-09-01-23-10-14\\_verify\\imm",
+        "name": "imm",
+        "remoteUrl": "C:/Users/Doro/Image_MultiModel",
+        "remotes": [
+          {
+            "name": "origin",
+            "url": "C:/Users/Doro/Image_MultiModel"
+          }
+        ],
+        "github": null,
+        "branch": "main",
+        "head": "f78a77a",
+        "lastCommitAt": "2026-09-01T23:28:26+08:00",
+        "dirty": false,
+        "dirtyCount": 0,
+        "ahead": 0,
+        "behind": 0,
+        "bare": false,
+        "error": null,
+        "matched": false,
+        "matchType": null,
+        "matchedRepo": null
+      },
+      {
+        "path": "C:\\Users\\Doro\\WorkBuddy\\2026-09-02-16-00-54\\ComfyUI-BatchPromptLoader",
+        "name": "ComfyUI-BatchPromptLoader",
+        "remoteUrl": "https://github.com/ReSerendipity/ComfyUI-BatchPromptLoader.git",
+        "remotes": [
+          {
+            "name": "origin",
+            "url": "https://github.com/ReSerendipity/ComfyUI-BatchPromptLoader.git"
+          }
+        ],
+        "github": {
+          "owner": "ReSerendipity",
+          "repo": "ComfyUI-BatchPromptLoader",
+          "host": "github.com",
+          "isGitHub": true
+        },
+        "branch": "master",
+        "head": "c9c9c76",
+        "lastCommitAt": "2026-09-02T17:16:58+08:00",
+        "dirty": false,
+        "dirtyCount": 0,
+        "ahead": 3,
+        "behind": 0,
+        "bare": false,
+        "error": null,
+        "matched": true,
+        "matchType": "owner/repo",
+        "matchedRepo": "ComfyUI-BatchPromptLoader"
+      },
+      {
+        "path": "C:\\Users\\Doro\\WorkBuddy\\2026-09-02-16-00-54\\ComfyUI-Manager",
+        "name": "ComfyUI-Manager",
+        "remoteUrl": "https://github.com/Comfy-Org/ComfyUI-Manager.git",
+        "remotes": [
+          {
+            "name": "myfork",
+            "url": "https://github.com/ReSerendipity/ComfyUI-Manager.git"
+          },
+          {
+            "name": "origin",
+            "url": "https://github.com/Comfy-Org/ComfyUI-Manager.git"
+          }
+        ],
+        "github": {
+          "owner": "Comfy-Org",
+          "repo": "ComfyUI-Manager",
+          "host": "github.com",
+          "isGitHub": true
+        },
+        "branch": "add-batch-prompt-loader",
+        "head": "d3b0e1be",
+        "lastCommitAt": "2026-09-02T16:33:26+08:00",
+        "dirty": false,
+        "dirtyCount": 0,
+        "ahead": null,
+        "behind": null,
+        "bare": false,
+        "error": null,
+        "matched": true,
+        "matchType": "name",
+        "matchedRepo": "ComfyUI-Manager"
+      },
+      {
+        "path": "C:\\Users\\Doro\\WorkBuddy\\2026-09-13-19-55-29\\cs_clone",
+        "name": "cs_clone",
+        "remoteUrl": "https://github.com/ReSerendipity/Card-Studio.git",
+        "remotes": [
+          {
+            "name": "origin",
+            "url": "https://github.com/ReSerendipity/Card-Studio.git"
+          }
+        ],
+        "github": {
+          "owner": "ReSerendipity",
+          "repo": "Card-Studio",
+          "host": "github.com",
+          "isGitHub": true
+        },
+        "branch": "main",
+        "head": "3fae667",
+        "lastCommitAt": "2026-09-13T23:41:29+08:00",
+        "dirty": false,
+        "dirtyCount": 0,
+        "ahead": 5,
+        "behind": 0,
+        "bare": false,
+        "error": null,
+        "matched": true,
+        "matchType": "owner/repo",
+        "matchedRepo": "Card-Studio"
+      },
+      {
+        "path": "C:\\Users\\Doro\\WorkBuddy\\2026-09-13-19-55-29\\lineart_clone",
+        "name": "lineart_clone",
+        "remoteUrl": "https://github.com/ReSerendipity/Lineart_Painter.git",
+        "remotes": [
+          {
+            "name": "origin",
+            "url": "https://github.com/ReSerendipity/Lineart_Painter.git"
+          }
+        ],
+        "github": {
+          "owner": "ReSerendipity",
+          "repo": "Lineart_Painter",
+          "host": "github.com",
+          "isGitHub": true
+        },
+        "branch": "main",
+        "head": "3ba185f",
+        "lastCommitAt": "2026-09-13T22:44:59+08:00",
+        "dirty": false,
+        "dirtyCount": 0,
+        "ahead": 1,
+        "behind": 0,
+        "bare": false,
+        "error": null,
+        "matched": true,
+        "matchType": "owner/repo",
+        "matchedRepo": "Lineart_Painter"
+      },
+      {
+        "path": "C:\\Users\\Doro\\WorkBuddy\\2026-09-13-19-55-29\\verify_staging\\verify_lineart",
+        "name": "verify_lineart",
+        "remoteUrl": "https://github.com/ReSerendipity/Lineart_Painter.git",
+        "remotes": [
+          {
+            "name": "origin",
+            "url": "https://github.com/ReSerendipity/Lineart_Painter.git"
+          }
+        ],
+        "github": {
+          "owner": "ReSerendipity",
+          "repo": "Lineart_Painter",
+          "host": "github.com",
+          "isGitHub": true
+        },
+        "branch": null,
+        "head": null,
+        "lastCommitAt": null,
+        "dirty": false,
+        "dirtyCount": 0,
+        "ahead": null,
+        "behind": null,
+        "bare": false,
+        "error": null,
+        "matched": true,
+        "matchType": "owner/repo",
+        "matchedRepo": "Lineart_Painter"
+      },
+      {
+        "path": "C:\\Users\\Doro\\WorkBuddy\\2026-09-14-11-08-22\\spiritpal_clone",
+        "name": "spiritpal_clone",
+        "remoteUrl": "https://github.com/ReSerendipity/SpiritPal.git",
+        "remotes": [
+          {
+            "name": "origin",
+            "url": "https://github.com/ReSerendipity/SpiritPal.git"
+          }
+        ],
+        "github": {
+          "owner": "ReSerendipity",
+          "repo": "SpiritPal",
+          "host": "github.com",
+          "isGitHub": true
+        },
+        "branch": "ci/governance-spiritpal",
+        "head": "e967b4d",
+        "lastCommitAt": "2026-09-14T20:47:39+08:00",
+        "dirty": false,
+        "dirtyCount": 0,
+        "ahead": 0,
+        "behind": 0,
+        "bare": false,
+        "error": null,
+        "matched": true,
+        "matchType": "owner/repo",
+        "matchedRepo": "SpiritPal"
+      },
+      {
+        "path": "C:\\Users\\Doro\\WorkBuddy AI\\2026-09-02-17-36-54\\DraftPeek-private",
+        "name": "DraftPeek-private",
+        "remoteUrl": "https://github.com/ReSerendipity/DraftPeek-private.git",
+        "remotes": [
+          {
+            "name": "origin",
+            "url": "https://github.com/ReSerendipity/DraftPeek-private.git"
+          }
+        ],
+        "github": {
+          "owner": "ReSerendipity",
+          "repo": "DraftPeek-private",
+          "host": "github.com",
+          "isGitHub": true
+        },
+        "branch": "ci/verify-jacoco-coverage",
+        "head": null,
+        "lastCommitAt": null,
+        "dirty": true,
+        "dirtyCount": 817,
+        "ahead": null,
+        "behind": null,
+        "bare": false,
+        "error": null,
+        "matched": false,
+        "matchType": null,
+        "matchedRepo": null
+      },
+      {
+        "path": "C:\\Users\\Doro\\WorkBuddy AI\\2026-09-02-17-36-54\\SpiritPal-private",
+        "name": "SpiritPal-private",
+        "remoteUrl": "https://github.com/ReSerendipity/SpiritPal-private.git",
+        "remotes": [
+          {
+            "name": "origin",
+            "url": "https://github.com/ReSerendipity/SpiritPal-private.git"
+          }
+        ],
+        "github": {
+          "owner": "ReSerendipity",
+          "repo": "SpiritPal-private",
+          "host": "github.com",
+          "isGitHub": true
+        },
+        "branch": "main",
+        "head": "4767ad7",
+        "lastCommitAt": "2026-09-03T09:45:02+08:00",
+        "dirty": false,
+        "dirtyCount": 0,
+        "ahead": 1,
+        "behind": 0,
+        "bare": false,
+        "error": null,
+        "matched": false,
+        "matchType": null,
+        "matchedRepo": null
+      },
+      {
+        "path": "C:\\Users\\Doro\\WorkBuddy AI\\2026-09-02-17-36-54\\spiritpal_clone",
+        "name": "spiritpal_clone",
+        "remoteUrl": "https://github.com/ReSerendipity/SpiritPal-private.git",
+        "remotes": [
+          {
+            "name": "origin",
+            "url": "https://github.com/ReSerendipity/SpiritPal-private.git"
+          }
+        ],
+        "github": {
+          "owner": "ReSerendipity",
+          "repo": "SpiritPal-private",
+          "host": "github.com",
+          "isGitHub": true
+        },
+        "branch": "ci/fix-pnpm-overrides",
+        "head": null,
+        "lastCommitAt": null,
+        "dirty": true,
+        "dirtyCount": 721,
+        "ahead": null,
+        "behind": null,
+        "bare": false,
+        "error": null,
+        "matched": false,
+        "matchType": null,
+        "matchedRepo": null
+      },
+      {
+        "path": "C:\\Users\\Doro\\WorkBuddy AI\\2026-09-02-17-36-54\\_fix\\DraftPeek-private",
+        "name": "DraftPeek-private",
+        "remoteUrl": "https://github.com/ReSerendipity/DraftPeek-private.git",
+        "remotes": [
+          {
+            "name": "origin",
+            "url": "https://github.com/ReSerendipity/DraftPeek-private.git"
+          }
+        ],
+        "github": {
+          "owner": "ReSerendipity",
+          "repo": "DraftPeek-private",
+          "host": "github.com",
+          "isGitHub": true
+        },
+        "branch": null,
+        "head": null,
+        "lastCommitAt": null,
+        "dirty": false,
+        "dirtyCount": 0,
+        "ahead": null,
+        "behind": null,
+        "bare": false,
+        "error": null,
+        "matched": false,
+        "matchType": null,
+        "matchedRepo": null
+      },
+      {
+        "path": "C:\\Users\\Doro\\WorkBuddy AI\\2026-09-02-17-36-54\\_fix\\MiniMax-H3-lite",
+        "name": "MiniMax-H3-lite",
+        "remoteUrl": "https://github.com/ReSerendipity/MiniMax-H3-lite.git",
+        "remotes": [
+          {
+            "name": "origin",
+            "url": "https://github.com/ReSerendipity/MiniMax-H3-lite.git"
+          }
+        ],
+        "github": {
+          "owner": "ReSerendipity",
+          "repo": "MiniMax-H3-lite",
+          "host": "github.com",
+          "isGitHub": true
+        },
+        "branch": "main",
+        "head": "f28d095",
+        "lastCommitAt": "2026-09-03T09:24:54+08:00",
+        "dirty": false,
+        "dirtyCount": 0,
+        "ahead": 3,
+        "behind": 0,
+        "bare": false,
+        "error": null,
+        "matched": true,
+        "matchType": "owner/repo",
+        "matchedRepo": "MiniMax-H3-lite"
+      },
+      {
+        "path": "C:\\Users\\Doro\\WorkBuddy AI\\2026-09-02-17-36-54\\_fix\\SeedVR2-lite",
+        "name": "SeedVR2-lite",
+        "remoteUrl": "https://github.com/ReSerendipity/SeedVR2-lite.git",
+        "remotes": [
+          {
+            "name": "origin",
+            "url": "https://github.com/ReSerendipity/SeedVR2-lite.git"
+          }
+        ],
+        "github": {
+          "owner": "ReSerendipity",
+          "repo": "SeedVR2-lite",
+          "host": "github.com",
+          "isGitHub": true
+        },
+        "branch": "main",
+        "head": "4d433d1",
+        "lastCommitAt": "2026-09-02T23:31:13+08:00",
+        "dirty": false,
+        "dirtyCount": 0,
+        "ahead": 0,
+        "behind": 0,
+        "bare": false,
+        "error": null,
+        "matched": true,
+        "matchType": "owner/repo",
+        "matchedRepo": "SeedVR2-lite"
+      },
+      {
+        "path": "C:\\Users\\Doro\\WorkBuddy AI\\2026-09-02-17-36-54\\_fix\\SpiritPal-private",
+        "name": "SpiritPal-private",
+        "remoteUrl": "https://github.com/ReSerendipity/SpiritPal-private.git",
+        "remotes": [
+          {
+            "name": "origin",
+            "url": "https://github.com/ReSerendipity/SpiritPal-private.git"
+          }
+        ],
+        "github": {
+          "owner": "ReSerendipity",
+          "repo": "SpiritPal-private",
+          "host": "github.com",
+          "isGitHub": true
+        },
+        "branch": "main",
+        "head": "9157607",
+        "lastCommitAt": "2026-09-03T00:36:03+08:00",
+        "dirty": false,
+        "dirtyCount": 0,
+        "ahead": 0,
+        "behind": 0,
+        "bare": false,
+        "error": null,
+        "matched": false,
+        "matchType": null,
+        "matchedRepo": null
+      }
+    ],
+    "matched": 31,
+    "localOnlyCount": 13
+  }
 }

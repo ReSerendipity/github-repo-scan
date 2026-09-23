@@ -1,0 +1,13 @@
+#!/bin/sh
+# 推送前自动运行冒烟测试：核心逻辑（scan-core.mjs）回归时阻止 push 并打印可定位的失败。
+# 安装：见 readme.md「测试」章节；本文件为版本库内的唯一来源，复制到 .git/hooks/pre-push 后生效。
+set -e
+cd "$(git rev-parse --show-toplevel)" || exit 1
+
+echo "[pre-push] 运行冒烟测试：node --test"
+if node --test; then
+  exit 0
+fi
+
+echo "[pre-push] ✗ 冒烟测试失败，已阻止推送。请依据上方 文件:行 与断言差异修复后重试。"
+exit 1

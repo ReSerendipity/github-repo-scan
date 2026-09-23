@@ -2,8 +2,9 @@
 // v2：并行扫描 / 仓库分页 / CI 趋势 / API 配额 / 许可证链接增量复用 / schema 2
 import { execFileSync, execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { writeFileSync, readFileSync } from "node:fs";
+import { writeFileSync, readFileSync, readdirSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
+import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
 
 export const HERE = dirname(fileURLToPath(import.meta.url));
@@ -152,6 +153,244 @@ async function pool(items, limit, fn) {
   return results;
 }
 
+/* ---------------- 本地 Git 仓库扫描（读本机 .git，不联网、不依赖 gh） ---------------- */
+const SKIP_DIRS = new Set([
+  "node_modules", "venv", ".venv", "__pycache__", "site-packages", "dist", "build",
+  "target", ".next", ".nuxt", ".gradle", ".m2", ".cargo", ".rustup", ".idea", ".vs",
+  "$recycle.bin", "system volume information",
+]);
+
+/* 解析远程 URL → { host, owner, repo, isGitHub }；支持 https / git / ssh / scp 风格 */
+export function parseRemoteUrl(url) {
+  if (!url) return null;
+  const s = String(url).trim();
+  if (!s) return null;
+  let m = s.match(/^(?:ssh:\/\/)?git@([^\/:]+)[:\/](.+?)(?:\.git)?\/?$/i);
+  if (!m) m = s.match(/^(?:https?|git|ssh):\/\/(?:[^@\/]+@)?([^\/:]+(?::\d+)?)\/(.+?)(?:\.git)?\/?$/i);
+  if (!m) return null;
+  const host = m[1].toLowerCase().replace(/:\d+$/, "");
+  const parts = m[2].split("/").filter(Boolean);
+  if (parts.length < 2) return null;
+  return { host, owner: parts[0], repo: parts[1], isGitHub: host === "github.com" || host.endsWith(".github.com") };
+}
+
+/* 递归找 .git：depth 为根目录下的最大层数；跳过隐藏目录与常见重目录；不跟进符号链接与仓库内部 */
+export function findGitRepos(roots, depth = 4, maxRepos = 500) {
+  const out = [];
+  const seen = new Set();
+  const norm = (p) => String(p).replace(/[\\/]+$/, "").toLowerCase();
+  const push = (p) => {
+    const k = norm(p);
+    if (seen.has(k) || out.length >= maxRepos) return;
+    seen.add(k);
+    out.push(p);
+  };
+  const walk = (dir, d, maxD) => {
+    if (out.length >= maxRepos) return;
+    let entries;
+    try { entries = readdirSync(dir, { withFileTypes: true }); } catch { return; }
+    if (entries.some((e) => e.name.toLowerCase() === ".git")) { push(dir); return; }
+    if (d >= maxD) return;
+    for (const e of entries) {
+      if (!e.isDirectory() || e.isSymbolicLink()) continue;
+      const n = e.name;
+      if (n.startsWith(".") || SKIP_DIRS.has(n.toLowerCase())) continue;
+      walk(join(dir, n), d + 1, maxD);
+    }
+  };
+  for (const root of roots ?? []) {
+    const p = typeof root === "string" ? root : (root && root.path);
+    if (!p || !existsSync(p)) continue;
+    const dd = (typeof root === "object" && Number.isFinite(root.depth)) ? root.depth : depth;
+    walk(p, 0, dd);
+  }
+  return out;
+}
+
+async function gitOne(repoPath, args, timeoutMs = 12000) {
+  const { stdout } = await execFileP("git", ["-C", repoPath, ...args], { maxBuffer: 8 * 1024 * 1024, timeout: timeoutMs, windowsHide: true });
+  return stdout.trim();
+}
+
+/* 读取单个本地仓库：远程 URL / 分支 / HEAD / 脏状态 / 领先落后（基于本地缓存的 remote refs，不 fetch） */
+export async function gitInfoFor(repoPath) {
+  const info = {
+    path: repoPath, name: repoPath.split(/[\\/]/).filter(Boolean).pop() ?? repoPath,
+    remoteUrl: null, remotes: [], github: null, branch: null, head: null,
+    lastCommitAt: null, dirty: false, dirtyCount: 0, ahead: null, behind: null,
+    bare: false, error: null,
+  };
+  try {
+    try { info.bare = (await gitOne(repoPath, ["rev-parse", "--is-bare-repository"])) === "true"; } catch { /* 按非 bare 处理 */ }
+    try {
+      const out = await gitOne(repoPath, ["remote", "-v"]);
+      const seen = new Map();
+      for (const line of out.split("\n")) {
+        const m = line.match(/^(\S+)\s+(\S+)\s+\(fetch\)/);
+        if (m && !seen.has(m[1])) seen.set(m[1], m[2]);
+      }
+      info.remotes = [...seen].map(([name, url]) => ({ name, url }));
+      const pick = seen.get("origin") ?? [...seen.values()][0] ?? null;
+      info.remoteUrl = pick;
+      const p = parseRemoteUrl(pick);
+      if (p) info.github = { owner: p.owner, repo: p.repo, host: p.host, isGitHub: p.isGitHub };
+    } catch { /* 无远程也算正常仓库 */ }
+    try { info.branch = (await gitOne(repoPath, ["branch", "--show-current"])) || null; } catch { /* ignore */ }
+    if (!info.branch) {
+      try {
+        info.branch = (await gitOne(repoPath, ["rev-parse", "--abbrev-ref", "HEAD"])) || null;
+        if (info.branch === "HEAD") info.branch = "(detached)";
+      } catch { /* ignore */ }
+    }
+    try { info.head = (await gitOne(repoPath, ["rev-parse", "--short", "HEAD"])) || null; } catch { /* 空仓库无提交 */ }
+    try { info.lastCommitAt = (await gitOne(repoPath, ["log", "-1", "--format=%cI"])) || null; } catch { /* ignore */ }
+    if (!info.bare) {
+      try {
+        const st = await gitOne(repoPath, ["status", "--porcelain"]);
+        const n = st ? st.split("\n").filter((l) => l.trim()).length : 0;
+        info.dirtyCount = n;
+        info.dirty = n > 0;
+      } catch { /* ignore */ }
+    }
+    if (info.branch && !/^\(/.test(info.branch)) {
+      const ub = "origin/" + info.branch;
+      const cnt = async (spec) => {
+        try { return parseInt(await gitOne(repoPath, ["rev-list", "--count", spec]), 10); } catch { return null; }
+      };
+      info.ahead = await cnt(ub + "..HEAD");
+      info.behind = await cnt("HEAD.." + ub);
+    }
+  } catch (e) {
+    info.error = String((e && e.message) || e).split("\n")[0];
+  }
+  return info;
+}
+
+/* ---------------- 本地扫描配置（scan-config.json；含本机路径，不入库） ---------------- */
+export function readLocalConfig() {
+  try { return JSON.parse(readFileSync(join(HERE, "scan-config.json"), "utf8")) ?? {}; } catch { return {}; }
+}
+export function writeLocalConfig(cfg) {
+  writeFileSync(join(HERE, "scan-config.json"), JSON.stringify(cfg, null, 2) + "\n", "utf8");
+}
+/* 默认扫描范围：用户主目录只看 1 层（覆盖 C:\Users\me\<repo> 式克隆）+ 桌面/文档/下载看完整深度 */
+export function defaultLocalRoots() {
+  const cfg = readLocalConfig();
+  if (Array.isArray(cfg.localScanRoots) && cfg.localScanRoots.length) return cfg.localScanRoots;
+  const home = homedir();
+  const roots = [{ path: home, depth: 1 }];
+  for (const name of ["Desktop", "Documents", "Downloads"]) {
+    const p = join(home, name);
+    if (existsSync(p)) roots.push(p);
+  }
+  return roots;
+}
+
+/* 并发读取全部本地仓库信息 */
+export async function collectLocal({ roots, depth = 4, maxRepos = 500 } = {}) {
+  try { await execFileP("git", ["--version"], { timeout: 8000, windowsHide: true }); }
+  catch { throw new Error("未检测到 git 命令：请安装 Git（https://git-scm.com）并确保在 PATH 中"); }
+  const rs = (roots && roots.length ? roots : defaultLocalRoots()).filter(Boolean);
+  const paths = findGitRepos(rs, depth, maxRepos);
+  const rootsText = rs.map((x) => (typeof x === "string" ? x : (x && x.path) || "?")).join(" ; ");
+  if (!paths.length) {
+    throw new Error("在「" + rootsText + "」（深度 " + depth + "）下没有找到 Git 仓库：可用 --local-paths 或面板「本地目录…」调整范围");
+  }
+  console.log("? 本地扫描根目录：" + rootsText + "（深度 " + depth + "）→ 找到 " + paths.length + " 个 Git 仓库，并发读取状态…");
+  const repos = await pool(paths, 6, gitInfoFor);
+  return {
+    scannedAt: new Date().toISOString(),
+    roots: rs.map((x) => (typeof x === "string" ? x : x.path)),
+    depth,
+    count: repos.length,
+    repos,
+  };
+}
+
+/* 本地仓库与远程 rows 匹配：优先 owner/repo 精准，其次唯一同名兜底；写入 row.local 与 localScan.matched */
+export function matchLocalToRemote(data, localScan) {
+  const rows = data.rows || [];
+  for (const r of rows) r.local = null;
+  const byFull = new Map();
+  const byName = new Map();
+  for (const r of rows) {
+    const p = parseRemoteUrl(r.url);
+    if (p && p.isGitHub) byFull.set((p.owner + "/" + p.repo).toLowerCase(), r);
+    const k = String(r.name).toLowerCase();
+    if (!byName.has(k)) byName.set(k, []);
+    byName.get(k).push(r);
+  }
+  let matched = 0;
+  const localOnly = [];
+  for (const lr of localScan.repos || []) {
+    lr.matched = false;
+    lr.matchType = null;
+    lr.matchedRepo = null;
+    let row = null;
+    if (lr.github && lr.github.isGitHub) {
+      row = byFull.get((lr.github.owner + "/" + lr.github.repo).toLowerCase()) || null;
+      if (row) lr.matchType = "owner/repo";
+    }
+    if (!row) {
+      const cands = byName.get(String(lr.name).toLowerCase()) || [];
+      if (cands.length === 1) { row = cands[0]; lr.matchType = "name"; }
+      else if (cands.length > 1) lr.matchType = "ambiguous";
+    }
+    if (row) {
+      lr.matched = true;
+      lr.matchedRepo = row.name;
+      row.local = {
+        path: lr.path, branch: lr.branch, head: lr.head,
+        dirty: !!lr.dirty, dirtyCount: lr.dirtyCount || 0,
+        ahead: lr.ahead, behind: lr.behind,
+        lastCommitAt: lr.lastCommitAt, remoteUrl: lr.remoteUrl,
+      };
+      matched++;
+    } else {
+      localOnly.push(lr);
+    }
+  }
+  localScan.matched = matched;
+  localScan.localOnlyCount = localOnly.length;
+  return { matched, localOnly };
+}
+
+/* 汇总本地对照指标（无本地扫描时置 null，面板据此隐藏） */
+export function applyLocalTotals(data) {
+  const t = data.totals || (data.totals = {});
+  const ls = data.localScan;
+  if (!ls) {
+    t.localTotal = t.localMatched = t.localMissing = t.localOnly = t.localDirty = t.localDiverged = null;
+    return;
+  }
+  const rows = data.rows || [];
+  const repos = ls.repos || [];
+  t.localTotal = ls.count ?? repos.length;
+  t.localMatched = ls.matched ?? 0;
+  t.localMissing = rows.filter((r) => !r.local).length;
+  t.localOnly = ls.localOnlyCount ?? 0;
+  t.localDirty = repos.filter((x) => x.dirty).length;
+  t.localDiverged = repos.filter((x) => (x.ahead || 0) > 0 || (x.behind || 0) > 0).length;
+}
+
+/* 仅本地扫描：并入现有快照（没有则生成远程部分为空的骨架） */
+export function mergeLocalSnapshot(localScan) {
+  let data = null;
+  try { data = JSON.parse(readFileSync(join(HERE, "scan-data.json"), "utf8")); } catch { /* 无快照 */ }
+  if (!data || !Array.isArray(data.rows)) {
+    data = {
+      schema: 3, owner: null, avatarUrl: "", scannedAt: null, truncated: false, rate: null,
+      totals: { repos: 0, totalRepos: 0, stars: 0, forks: 0, openIssues: 0, openPRs: 0, releases: 0, ciDone: 0, ciOk: 0 },
+      rows: [],
+    };
+  }
+  matchLocalToRemote(data, localScan);
+  data.localScan = localScan;
+  data.schema = 3;
+  applyLocalTotals(data);
+  return data;
+}
+
 /* ---------------- 通用工具 ---------------- */
 const esc = (s) =>
   String(s ?? "").replace(/[&<>"']/g, (c) =>
@@ -260,7 +499,7 @@ const QUERY_PAGE = /* GraphQL */ `
   }`;
 
 /* ---------------- 数据采集（分页 + 并行 + 增量） ---------------- */
-export async function collectData(ownerArg) {
+export async function collectData(ownerArg, opts = {}) {
   const owner = ownerArg || (await ghAsync(["api", "user", "--jq", ".login"]));
   console.log("▸ 账号：" + owner);
 
@@ -383,7 +622,24 @@ export async function collectData(ownerArg) {
     ciOk: rows.filter((x) => x.ci.cls === "ok").length,
   };
 
-  return { schema: 2, owner: login, avatarUrl, scannedAt: new Date().toISOString(), truncated, rate, totals, rows };
+  const data = { schema: 3, owner: login, avatarUrl, scannedAt: new Date().toISOString(), truncated, rate, totals, rows };
+  for (const r of data.rows) r.local = null;
+  if (opts.local !== false) {
+    try {
+      const cfg = readLocalConfig();
+      const depth = Number.isFinite(opts.depth) ? opts.depth : (Number.isFinite(cfg.localScanDepth) ? cfg.localScanDepth : 4);
+      const localScan = await collectLocal({ roots: opts.roots, depth });
+      matchLocalToRemote(data, localScan);
+      data.localScan = localScan;
+    } catch (e) {
+      console.log("▸ 本地对照跳过：" + ((e && e.message) ?? e));
+      data.localScan = null;
+    }
+  } else {
+    data.localScan = null;
+  }
+  applyLocalTotals(data);
+  return data;
 }
 
 /* ---------------- 产物输出 ---------------- */
@@ -397,6 +653,16 @@ export function printSummary(data) {
   console.log("✔ 扫描完成：" + t.repos + " 个仓库 · ★ " + t.stars + " · Fork " + t.forks + " · 开放 Issue " + t.openIssues + "（另有 PR " + t.openPRs + "） · 发布 " + t.releases + " · CI 通过 " + t.ciOk + "/" + t.ciDone);
   for (const r of data.rows) {
     console.log("   " + r.name.padEnd(24) + " CI:" + r.ci.state.padEnd(6) + " 许可:" + (r.license ?? "未声明").padEnd(12) + " Release:" + (r.latestRelease ? r.latestRelease.tag : "—").padEnd(14) + " 分支:" + r.defaultBranch + "/" + r.branches + "  ★" + r.stars);
+  }
+  if (data.localScan) {
+    const ls = data.localScan;
+    console.log("▸ 本地对照：本机 " + ls.count + " 个 Git 仓库 · 对上 " + ls.matched + " · 本地独有 " + ls.localOnlyCount + " · 远程有本地缺 " + (t.localMissing ?? 0));
+    const missing = data.rows.filter((r) => !r.local).map((r) => r.name);
+    if (missing.length) console.log("  ⚠ 远程有但本地没扫到：" + missing.join(", "));
+    for (const lr of ls.repos) {
+      const st = [lr.dirty ? "未提交" + (lr.dirtyCount || 0) : "", (lr.ahead || 0) > 0 ? "↑" + lr.ahead : "", (lr.behind || 0) > 0 ? "↓" + lr.behind : ""].filter(Boolean).join(" ") || "干净";
+      console.log("   " + (lr.matched ? "✔ " : "＋") + lr.name.padEnd(24) + " " + String(lr.branch || "—").padEnd(14) + " " + st.padEnd(14) + " " + lr.path);
+    }
   }
   if (data.rate) console.log("▸ GitHub API 余量：" + data.rate.remaining + "/" + data.rate.limit);
   console.log("▸ 面板：" + join(HERE, "dashboard.html"));
@@ -485,6 +751,19 @@ export function renderDashboard(data) {
   .badge.info .dot { background: var(--accent); }
   .badge.warn { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 45%, transparent); background: color-mix(in srgb, var(--warn) 8%, transparent); }
   .badge.warn .dot { background: var(--warn); }
+  .modes { display: inline-flex; gap: 6px; }
+  .modes .btn.on { border-color: var(--accent); color: var(--accent); }
+  .local-box { border: 1px solid var(--border); border-radius: 8px; margin-top: 16px; background: var(--bg); overflow: hidden; }
+  .local-box .panel-title { padding: 11px 14px; font-size: 12.5px; font-weight: 600; color: var(--text); background: var(--panel); border-bottom: 1px solid var(--border); }
+  .local-scroll { overflow-x: auto; }
+  .local-table { width: 100%; border-collapse: collapse; min-width: 860px; }
+  .local-table tbody td { padding: 10px 14px; border-top: 1px solid var(--rowborder); vertical-align: top; }
+  .local-table tbody tr:hover { background: var(--hover); }
+  .local-table tbody tr:first-child td { border-top: none; }
+  .path { font-family: Consolas, "Cascadia Mono", monospace; font-size: 12px; color: var(--muted); max-width: 380px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dirty { color: var(--warn); }
+  .badge.local-ok { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 45%, transparent); background: color-mix(in srgb, var(--ok) 8%, transparent); }
+  .badge.local-ok .dot { background: var(--ok); }
   .toolbar .spacer { flex: 1; }
 
   .scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); }
@@ -552,7 +831,8 @@ export function renderDashboard(data) {
       <div class="scan-meta" id="scanMeta">正在载入数据…</div>
     </div>
     <div class="controls">
-      <button id="scanBtn" class="btn primary" type="button" title="重新扫描并刷新本页数据（需本地服务已启动：node server.mjs）"><span class="ico"></span><span class="lbl">重新扫描</span></button>
+      <button id="scanBtn" class="btn primary" type="button" title="重新扫描并刷新本页数据（远程 + 本地对照；需本地服务已启动：node server.mjs）"><span class="ico"></span><span class="lbl">重新扫描</span></button>
+      <button id="scanLocalBtn" class="btn" type="button" title="只扫描本机 Git 仓库并对照/列出（不访问 GitHub，需本地服务）"><span class="ico2"></span><span class="lbl">仅扫本地</span></button>
       <button id="themeBtn" class="btn icon" type="button" title="切换明暗主题" aria-label="切换明暗主题"></button>
     </div>
   </header>
@@ -571,7 +851,15 @@ export function renderDashboard(data) {
       <option value="none">无 CI 记录</option>
       <option value="hasIssue">有开放 Issue</option>
       <option value="noLic">未声明许可证</option>
+      <option value="noLocal">本地缺失</option>
+      <option value="dirtyLocal">本地有未提交改动</option>
+      <option value="aheadLocal">本地与远程不一致</option>
     </select>
+    <span class="modes" id="modeBox" style="display:none">
+      <button id="modeBoth" class="btn on" type="button" title="远程扫描结果 + 每仓本地对照状态">远程+本地对照</button>
+      <button id="modeLocal" class="btn" type="button" title="只看本机 Git 仓库（含远程账号名下没有的）">仅本地仓库</button>
+    </span>
+    <button id="cfgBtn" class="btn" type="button" title="设置本地扫描根目录（分号分隔），保存到 scan-config.json，下次扫描生效">本地目录…</button>
     <label class="chk"><input type="checkbox" id="fNoFork">隐藏 fork</label>
     <span class="spacer"></span>
     <span class="views-box">
@@ -591,11 +879,12 @@ export function renderDashboard(data) {
 
   <div class="notice" id="truncNotice" style="display:none"></div>
 
-  <div class="scroll">
+  <div class="scroll" id="mainScroll">
     <table>
       <thead>
         <tr>
           <th class="sortable" data-key="name" title="点击按仓库名排序">仓库<span class="arr" data-arr="name"></span></th>
+          <th class="sortable" data-key="local" title="点击按本地状态排序（降序 = 本地异常优先）">本地<span class="arr" data-arr="local"></span></th>
           <th class="sortable" data-key="score" title="健康分 = CI 40 + 新鲜度 30 + Issue 卫生 15 + 发布节奏 15(归档仓打七折)">健康<span class="arr" data-arr="score"></span></th>
           <th class="sortable" data-key="ci" title="点击按 CI 状态排序（降序 = 问题优先）">CI/CD 状态<span class="arr" data-arr="ci"></span></th>
           <th class="sortable" data-key="license" title="点击按许可证排序">许可证<span class="arr" data-arr="license"></span></th>
@@ -609,16 +898,18 @@ export function renderDashboard(data) {
           <th class="sortable" data-key="pushedAt" title="点击按最近推送排序">最近推送<span class="arr" data-arr="pushedAt"></span></th>
         </tr>
       </thead>
-      <tbody id="tbody"><tr><td class="empty" colspan="12">正在载入…</td></tr></tbody>
+      <tbody id="tbody"><tr><td class="empty" colspan="13">正在载入…</td></tr></tbody>
     </table>
   </div>
+
+  <div class="local-box" id="localOnlyBox" style="display:none"></div>
 
   <footer>
     <div id="footExtra"></div>
     数据为扫描时快照：页面内点「重新扫描」可原地更新（需启动本地服务 <code>node server.mjs</code>），或命令行 <code>node scan.mjs</code>（<code>--render-only</code> 仅重渲染）·
     排序：点击表头，再点一次切换升降序（选择会记住）· 健康分：CI 40 + 新鲜度 30 + Issue 卫生 15 + 发布节奏 15 · 视图：「＋存视图」保存当前筛选与排序 · 主题：右上角切换（默认浅色）·
     CI 取最近一次 Actions 运行（任意分支/标签）· Issue 数不含 PR（PR 单列）· 分支数为全部本地分支（不含 tag）·
-    表格内每个单元格都链接到对应的 GitHub 页面。
+    表格内每个单元格都链接到对应的 GitHub 页面 · 本地对照列：本机有对应 Git 仓库时显示分支与工作区状态（干净 / 未提交 n / ↑领先 ↓落后，基于本地缓存的远程 refs，不自动 fetch），扫描范围用「本地目录…」或 <code>scan-config.json</code> 调整 · 「仅本地仓库」模式在下方列出全部本机仓库（含远程账号名下没有的「本地独有」仓库）。
   </footer>
 </div>
 
@@ -638,11 +929,14 @@ window.__SCAN_DATA__ = ${jsonStr};
   var THEME_KEY = 'grs-theme';
   var AUTO_KEY = 'grs-auto';
   var SORT_KEY = 'grs-sort';
-  var state = { data: null, sortKey: 'pushedAt', sortDir: 'desc', scanning: false, q: '', fLang: '', fStatus: '', noFork: false };
+  var state = { data: null, sortKey: 'pushedAt', sortDir: 'desc', scanning: false, q: '', fLang: '', fStatus: '', noFork: false, mode: 'both' };
   var VIEWS_KEY = 'ghscan.views.v1';
+  var MODE_KEY = 'grs-mode';
   var viewState = { views: {}, current: '' };
   try { viewState.views = JSON.parse(localStorage.getItem(VIEWS_KEY) || '{}') || {}; } catch (e) { viewState.views = {}; }
   var autoTimer = null;
+
+  var SVG_FOLDER = '<svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="M1.75 1.5a.25.25 0 0 0-.25.25v10.5c0 .138.112.25.25.25h12.5a.25.25 0 0 0 .25-.25V4.75a.25.25 0 0 0-.25-.25H7.5a.75.75 0 0 1-.6-.3L5.9 2.9a.25.25 0 0 0-.2-.1H1.75ZM0 1.75C0 .784.784 0 1.75 0h4.06c.464 0 .909.216 1.194.585l1.28 1.665h5.966c.966 0 1.75.784 1.75 1.75v8.5A1.75 1.75 0 0 1 14.25 15H1.75A1.75 1.75 0 0 1 0 13.25V1.75Z"/></svg>';
 
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -714,7 +1008,15 @@ window.__SCAN_DATA__ = ${jsonStr};
     language: function (r) { return r.language ? r.language.toLowerCase() : null; },
     pushedAt: function (r) { return r.pushedAt; },
     score: function (r) { return scoreOf(r); },
-    traffic: function (r) { return r.traffic ? r.traffic.views : null; }
+    traffic: function (r) { return r.traffic ? r.traffic.views : null; },
+    local: function (r) {
+      if (!state.data || !state.data.localScan) return null;
+      var l = r.local;
+      if (!l) return 0;
+      if (l.dirty) return 3;
+      if ((l.ahead || 0) > 0 || (l.behind || 0) > 0) return 2;
+      return 1;
+    }
   };
   var ASC_DEFAULT = { name: true, license: true, language: true };
 
@@ -741,6 +1043,10 @@ window.__SCAN_DATA__ = ${jsonStr};
     if (state.fStatus === 'hasIssue' && r.openIssues <= 0) return false;
     if (state.fStatus === 'noLic' && r.license) return false;
     if (state.fLang && r.language !== state.fLang) return false;
+    var hasLocalData = state.data && state.data.localScan;
+    if (state.fStatus === 'noLocal' && (!hasLocalData || !!r.local)) return false;
+    if (state.fStatus === 'dirtyLocal' && (!hasLocalData || !r.local || !r.local.dirty)) return false;
+    if (state.fStatus === 'aheadLocal' && (!hasLocalData || !r.local || !(((r.local.ahead || 0) > 0) || ((r.local.behind || 0) > 0)))) return false;
     if (state.q) {
       var qq = state.q.toLowerCase();
       var hay = (r.name + ' ' + (r.description || '')).toLowerCase();
@@ -831,6 +1137,63 @@ window.__SCAN_DATA__ = ${jsonStr};
     return '<a class="muted" href="' + esc(r.url) + '/graphs/traffic" target="_blank" rel="noopener" title="近 14 天:' + t.viewUniques + ' 位访客 · ' + t.cloneUniques + ' 人克隆">' + t.views + ' 浏览 · ' + t.clones + ' 克隆</a>';
   }
 
+  function localCell(r) {
+    var d = state.data;
+    if (!d || !d.localScan) return '<span class="muted" title="未启用本地扫描：点「仅扫本地」或运行 node scan.mjs --local-only">—</span>';
+    var l = r.local;
+    if (!l) return '<span class="badge" title="本机扫描范围内没有对应目录"><span class="dot"></span>本地缺失</span>';
+    var bits = [];
+    if (l.dirty) bits.push('<span class="dirty">未提交 ' + (l.dirtyCount || 0) + '</span>');
+    if ((l.ahead || 0) > 0) bits.push('↑' + l.ahead);
+    if ((l.behind || 0) > 0) bits.push('↓' + l.behind);
+    if (!bits.length) bits.push('干净');
+    var tip = esc(l.path || '') + (l.branch ? ' @ ' + esc(l.branch) : '') + ' · 基于本地缓存的远程 refs，不自动 fetch';
+    return '<span class="badge local-ok" title="' + tip + '"><span class="dot"></span>本地有</span><div class="sub">' + esc(l.branch || '—') + ' · ' + bits.join(' · ') + '</div>';
+  }
+
+  function localRowHtml(lr) {
+    var ghLink;
+    if (lr.github && lr.github.isGitHub) {
+      var ghUrl = 'https://github.com/' + lr.github.owner + '/' + lr.github.repo;
+      ghLink = '<a href="' + esc(ghUrl) + '" target="_blank" rel="noopener">' + esc(lr.github.owner + '/' + lr.github.repo) + '</a>';
+    } else if (lr.remoteUrl) {
+      ghLink = '<span class="muted" title="' + esc(lr.remoteUrl) + '">非 GitHub 远程</span>';
+    } else {
+      ghLink = '<span class="muted">无远程</span>';
+    }
+    var st = [];
+    if (lr.dirty) st.push('<span class="tag warn">未提交 ' + (lr.dirtyCount || 0) + '</span>');
+    if ((lr.ahead || 0) > 0) st.push('<span class="tag" title="本地领先远程">↑ ' + lr.ahead + '</span>');
+    if ((lr.behind || 0) > 0) st.push('<span class="tag" title="本地落后远程">↓ ' + lr.behind + '</span>');
+    if (!st.length) st.push('<span class="tag">干净</span>');
+    if (lr.error) st.push('<span class="tag warn" title="' + esc(lr.error) + '">读取异常</span>');
+    var nameCell = '<span class="repo-name">' + esc(lr.name) + '</span>' + (lr.matched ? '' : ' <span class="tag">远程无对应</span>');
+    return '<tr>' +
+      '<td class="repo">' + nameCell + '</td>' +
+      '<td class="path" title="' + esc(lr.path) + '">' + esc(lr.path) + '</td>' +
+      '<td>' + esc(lr.branch || '—') + (lr.head ? ' <span class="muted">@' + esc(lr.head) + '</span>' : '') + '</td>' +
+      '<td>' + st.join(' ') + '</td>' +
+      '<td class="num">' + (lr.lastCommitAt ? '<span title="' + esc(fullTime(lr.lastCommitAt)) + '">' + esc(relTime(lr.lastCommitAt)) + '</span>' : '<span class="muted">—</span>') + '</td>' +
+      '<td>' + ghLink + '</td>' +
+      '</tr>';
+  }
+
+  function renderLocalBox() {
+    var box = document.getElementById('localOnlyBox');
+    var d = state.data;
+    if (!d || !d.localScan) { box.style.display = 'none'; box.innerHTML = ''; return; }
+    var only = state.mode === 'both';
+    if (only && d.localScan.localOnlyCount === 0) { box.style.display = 'none'; box.innerHTML = ''; return; }
+    var repos = d.localScan.repos.slice();
+    if (only) repos = repos.filter(function (x) { return !x.matched; });
+    repos.sort(function (a, b) { var va = a.lastCommitAt || '', vb = b.lastCommitAt || ''; return vb < va ? -1 : vb > va ? 1 : 0; });
+    var label = only
+      ? '本地独有仓库（' + repos.length + '）—— 本机存在、远程账号名下没有对应目录'
+      : '本地 Git 仓库（' + repos.length + '）—— 只读本机 .git 状态，不做网络请求';
+    box.style.display = '';
+    box.innerHTML = '<div class="panel-title">' + esc(label) + '</div><div class="local-scroll"><table class="local-table"><thead><tr><th>仓库</th><th>本地路径</th><th>分支</th><th>工作区状态</th><th>最近提交</th><th>远程</th></tr></thead><tbody>' + repos.map(localRowHtml).join('') + '</tbody></table></div>';
+  }
+
   function rowHtml(r) {
     var tags =
       (r.visibility && r.visibility !== 'PUBLIC' ? '<span class="tag warn">私有</span>' : '') +
@@ -851,6 +1214,7 @@ window.__SCAN_DATA__ = ${jsonStr};
     var fork = '<a href="' + esc(r.url) + '/forks" target="_blank" rel="noopener" title="打开 Forks 页">' + SVG_FORK + ' ' + r.forks + '</a>';
     return '<tr>' +
       '<td class="repo"><a class="repo-name" href="' + esc(r.url) + '" target="_blank" rel="noopener">' + esc(r.name) + '</a>' + tags + '<div class="desc" title="' + esc(r.description) + '">' + esc(r.description || '无描述') + '</div></td>' +
+      '<td>' + localCell(r) + '</td>' +
       '<td>' + scoreCell(r) + '</td>' +
       '<td>' + ciCell(r) + '</td>' +
       '<td>' + lic + '</td>' +
@@ -870,13 +1234,16 @@ window.__SCAN_DATA__ = ${jsonStr};
     if (!d) {
       document.getElementById('scanMeta').textContent = '尚未扫描';
       document.getElementById('metrics').innerHTML = '';
-      document.getElementById('tbody').innerHTML = '<tr><td class="empty" colspan="12">暂无数据 —— 点击右上角「重新扫描」开始第一次扫描（需已启动 node server.mjs）</td></tr>';
+      document.getElementById('tbody').innerHTML = '<tr><td class="empty" colspan="13">暂无数据 —— 点击右上角「重新扫描」开始第一次扫描（需已启动 node server.mjs）</td></tr>';
       return;
     }
     var avatar = document.getElementById('avatar');
     if (d.avatarUrl) { avatar.src = d.avatarUrl; avatar.style.display = ''; }
     document.getElementById('title').textContent = d.owner + ' · GitHub 仓库总览';
-    document.getElementById('scanMeta').textContent = '扫描时间 ' + fullTime(d.scannedAt) + ' · 共 ' + d.totals.repos + ' 个仓库（账号名下 ' + d.totals.totalRepos + ' 个） · 数据源 gh api（GraphQL + REST）';
+    var hasLocal = !!(d.localScan);
+    var meta = '扫描时间 ' + fullTime(d.scannedAt) + ' · 共 ' + d.totals.repos + ' 个仓库（账号名下 ' + d.totals.totalRepos + ' 个） · 数据源 gh api（GraphQL + REST）';
+    if (hasLocal) meta += ' · 本地对照 ' + d.localScan.count + ' 仓（' + fullTime(d.localScan.scannedAt) + '）';
+    document.getElementById('scanMeta').textContent = meta;
     var t = d.totals;
     document.getElementById('metrics').innerHTML =
       metric(t.repos, '仓库') +
@@ -885,14 +1252,19 @@ window.__SCAN_DATA__ = ${jsonStr};
       metric(t.openIssues + '<span class="vsub"> +' + t.openPRs + ' PR</span>', '开放 Issue') +
       metric(t.releases, '发布合计') +
       metric(t.ciOk + '<span class="vsub">/' + t.ciDone + '</span>', 'CI 通过 / 有记录') +
-      metric(function () { var s = 0, n = d.rows.length || 1; for (var i = 0; i < d.rows.length; i++) s += scoreOf(d.rows[i]); return Math.round(s / n); }(), '平均健康分');
+      metric(function () { var s = 0, n = d.rows.length || 1; for (var i = 0; i < d.rows.length; i++) s += scoreOf(d.rows[i]); return Math.round(s / n); }(), '平均健康分') +
+      (hasLocal ? metric(t.localMatched + '<span class="vsub">/' + t.localTotal + '</span>', '本地对照') + metric(t.localMissing, '本地缺失') + metric(t.localOnly, '本地独有') + metric(t.localDirty, '本地未提交') : '');
 
     rebuildLangOptions();
 
+    document.getElementById('modeBox').style.display = hasLocal ? '' : 'none';
+    if (!hasLocal && state.mode !== 'both') state.mode = 'both';
+    document.getElementById('mainScroll').style.display = state.mode === 'local' ? 'none' : '';
     var rows = visibleRows();
     document.getElementById('tbody').innerHTML = rows.length
       ? rows.map(rowHtml).join('')
-      : '<tr><td class="empty" colspan="12">没有匹配的仓库 —— 试试清空搜索或放宽筛选条件</td></tr>';
+      : '<tr><td class="empty" colspan="13">没有匹配的仓库 —— 试试清空搜索或放宽筛选条件</td></tr>';
+    renderLocalBox();
 
     var extra = [];
     if (d.rate && typeof d.rate.remaining === 'number') {
@@ -943,6 +1315,50 @@ window.__SCAN_DATA__ = ${jsonStr};
       });
   }
 
+  /* ---------- 本地扫描与视图模式 ---------- */
+  function doScanLocal() {
+    if (state.scanning) return;
+    state.scanning = true;
+    var btn = document.getElementById('scanLocalBtn');
+    btn.classList.add('scanning');
+    btn.querySelector('.lbl').textContent = '扫描中…';
+    setHint('正在扫描本机 Git 仓库（遍历目录 + 读取 .git 状态，不访问 GitHub）…');
+    fetch('/api/scan-local', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+      .then(function (r) {
+        return r.json().catch(function () { return { ok: false, error: 'HTTP ' + r.status }; });
+      })
+      .then(function (j) {
+        if (!j.ok) throw new Error(j.error || 'HTTP 错误');
+        state.data = j.data;
+        updateArr();
+        setMode(state.mode, true);
+        render();
+        var ls = state.data.localScan;
+        setHint('本地扫描完成：' + fullTime(ls.scannedAt) + ' · 本机 ' + ls.count + ' 仓 · 对上 ' + ls.matched + ' · dashboard.html 与 scan-data.json 已写入磁盘', 'okc');
+      })
+      .catch(function (e) {
+        var m = String((e && e.message) || e);
+        if (/failed to fetch|networkerror|load failed|fetch failed/i.test(m)) {
+          m = '未检测到本地服务：请先运行 node server.mjs，或命令行 node scan.mjs --local-only';
+        }
+        setHint('本地扫描失败：' + m, 'err');
+      })
+      .then(function () {
+        state.scanning = false;
+        btn.classList.remove('scanning');
+        btn.querySelector('.lbl').textContent = '仅扫本地';
+      });
+  }
+
+  function setMode(m, skipRender) {
+    var hasLocal = !!(state.data && state.data.localScan);
+    state.mode = (m === 'local' && hasLocal) ? 'local' : 'both';
+    try { localStorage.setItem(MODE_KEY, state.mode); } catch (e) {}
+    document.getElementById('modeBoth').className = 'btn' + (state.mode === 'both' ? ' on' : '');
+    document.getElementById('modeLocal').className = 'btn' + (state.mode === 'local' ? ' on' : '');
+    if (!skipRender) render();
+  }
+
   /* ---------- 自动刷新 ---------- */
   function applyAuto(silent) {
     var mins = parseInt(document.getElementById('auto').value, 10) || 0;
@@ -986,6 +1402,26 @@ window.__SCAN_DATA__ = ${jsonStr};
 
     document.getElementById('scanBtn').querySelector('.ico').innerHTML = SVG_SYNC;
     document.getElementById('scanBtn').addEventListener('click', doScan);
+    document.getElementById('scanLocalBtn').querySelector('.ico2').innerHTML = SVG_FOLDER;
+    document.getElementById('scanLocalBtn').addEventListener('click', doScanLocal);
+    document.getElementById('modeBoth').addEventListener('click', function () { setMode('both'); });
+    document.getElementById('modeLocal').addEventListener('click', function () { setMode('local'); });
+    document.getElementById('cfgBtn').addEventListener('click', function () {
+      var d = state.data || {};
+      var cur = ((d.localScan && d.localScan.roots) || []).join(' ; ');
+      var input = prompt('本地扫描根目录（分号分隔；留空恢复默认：主目录1层 + 桌面/文档/下载）:', cur);
+      if (input === null) return;
+      var roots = input.split(/[;；]/).map(function (s) { return s.trim(); }).filter(Boolean);
+      fetch('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ localScanRoots: roots }) })
+        .then(function (r) { return r.json().catch(function () { return { ok: false, error: 'HTTP ' + r.status }; }); })
+        .then(function (j) {
+          if (!j.ok) throw new Error(j.error || 'HTTP 错误');
+          setHint(roots.length ? '本地目录已保存（' + roots.length + ' 个）：点「重新扫描」或「仅扫本地」生效' : '已清空自定义目录，恢复默认探测：点「重新扫描」或「仅扫本地」生效', 'okc');
+        })
+        .catch(function () {
+          setHint('保存失败（需本地服务 node server.mjs）；也可命令行临时指定：node scan.mjs --local-paths "目录1;目录2"', 'err');
+        });
+    });
     document.getElementById('themeBtn').addEventListener('click', function () {
       var cur = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
       applyTheme(cur === 'dark' ? 'light' : 'dark');
@@ -1046,6 +1482,7 @@ window.__SCAN_DATA__ = ${jsonStr};
       })(ths[i]);
     }
 
+    try { if (localStorage.getItem(MODE_KEY) === 'local') state.mode = 'local'; } catch (e) {}
     loadSort();
     updateArr();
     var embedded = window.__SCAN_DATA__ || null;

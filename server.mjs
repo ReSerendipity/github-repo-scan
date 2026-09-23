@@ -6,7 +6,10 @@
  *   GET  /                → dashboard.html（内嵌最新快照的交互面板）
  *   GET  /dashboard.html  → 同上
  *   GET  /api/data        → 最近一次扫描数据（JSON）
- *   POST /api/scan        → 重新扫描（复用 gh CLI），成功后原地返回最新数据并更新磁盘文件
+ *   POST /api/scan        → 重新扫描（远程 + 本地对照，复用 gh CLI + 本机 git），原地返回最新数据并更新磁盘文件
+ *   POST /api/scan-local  → 仅扫描本机 Git 仓库（不访问 GitHub），并入现有快照
+ *   GET  /api/config      → 读取本地扫描配置（scan-config.json）
+ *   POST /api/config      → 保存本地扫描配置（localScanRoots / localScanDepth）
  *
  * 仅监听 127.0.0.1；扫描耗时约 20–40 秒（30+ 个 GitHub API 调用）。
  */
@@ -14,7 +17,7 @@ import http from "node:http";
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { spawn } from "node:child_process";
-import { collectData, writeOutputs, HERE } from "./scan-core.mjs";
+import { collectData, collectLocal, mergeLocalSnapshot, writeOutputs, readLocalConfig, writeLocalConfig, HERE } from "./scan-core.mjs";
 
 const args = process.argv.slice(2);
 const portIdx = args.indexOf("--port");
@@ -39,6 +42,11 @@ function readBody(req) {
     req.on("end", () => { try { resolve(b ? JSON.parse(b) : {}); } catch { resolve({}); } });
     req.on("error", () => resolve({}));
   });
+}
+
+function sameOriginOk(req) {
+  const origin = req.headers.origin || "";
+  return !origin || /^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/.test(origin);
 }
 
 function bootstrapPage() {
@@ -68,9 +76,8 @@ const server = http.createServer(async (req, res) => {
     }
     if (url.pathname === "/api/scan" && req.method === "POST") {
       // 阻断跨站触发：浏览器发起的跨域 POST 必带 Origin 头；curl 等本地客户端无 Origin，放行
-      const origin = req.headers.origin || "";
-      if (origin && !/^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/.test(origin)) {
-        return sendJson(res, 403, { ok: false, error: "拒绝跨域来源的扫描请求：" + origin });
+      if (!sameOriginOk(req)) {
+        return sendJson(res, 403, { ok: false, error: "拒绝跨域来源的扫描请求：" + (req.headers.origin || "") });
       }
       if (busy) return sendJson(res, 409, { ok: false, error: "已有一次扫描正在进行，请稍候" });
       busy = true;
@@ -86,6 +93,54 @@ const server = http.createServer(async (req, res) => {
         return sendJson(res, 500, { ok: false, error: String(e?.message ?? e) });
       } finally {
         busy = false;
+      }
+    }
+    if (url.pathname === "/api/scan-local" && req.method === "POST") {
+      if (!sameOriginOk(req)) {
+        return sendJson(res, 403, { ok: false, error: "拒绝跨域来源的扫描请求：" + (req.headers.origin || "") });
+      }
+      if (busy) return sendJson(res, 409, { ok: false, error: "已有一次扫描正在进行，请稍候" });
+      busy = true;
+      const body = await readBody(req);
+      console.log("▸ [" + new Date().toLocaleTimeString("zh-CN", { hour12: false }) + "] 收到本地扫描请求…");
+      try {
+        const cfg = readLocalConfig();
+        const depth = Number.isFinite(body.depth) ? body.depth : (Number.isFinite(cfg.localScanDepth) ? cfg.localScanDepth : 4);
+        const roots = Array.isArray(body.paths) && body.paths.length ? body.paths : undefined;
+        const localScan = await collectLocal({ roots, depth });
+        const data = mergeLocalSnapshot(localScan);
+        writeOutputs(data);
+        console.log("✔ 本地扫描完成：" + localScan.count + " 个本地仓库 · 对照上 " + localScan.matched + " 个 · dashboard.html / scan-data.json 已更新");
+        return sendJson(res, 200, { ok: true, data });
+      } catch (e) {
+        console.error("✖ 本地扫描失败：" + (e?.message ?? e));
+        return sendJson(res, 500, { ok: false, error: String(e?.message ?? e) });
+      } finally {
+        busy = false;
+      }
+    }
+    if (url.pathname === "/api/config") {
+      if (!sameOriginOk(req)) {
+        return sendJson(res, 403, { ok: false, error: "拒绝跨域来源的请求：" + (req.headers.origin || "") });
+      }
+      if (req.method === "GET") return sendJson(res, 200, { ok: true, config: readLocalConfig() });
+      if (req.method === "POST") {
+        const body = await readBody(req);
+        const patchCfg = {};
+        if (body && Array.isArray(body.localScanRoots)) {
+          const roots = body.localScanRoots.filter((x) => typeof x === "string" && x.trim()).map((x) => x.trim());
+          patchCfg.localScanRoots = roots.length ? roots : null; // 清空 → 恢复默认探测
+        }
+        if (body && Number.isFinite(body.localScanDepth)) {
+          patchCfg.localScanDepth = Math.max(1, Math.min(10, Math.floor(body.localScanDepth)));
+        }
+        const merged = { ...readLocalConfig() };
+        for (const [k, v] of Object.entries(patchCfg)) {
+          if (v === null) delete merged[k];
+          else merged[k] = v;
+        }
+        writeLocalConfig(merged);
+        return sendJson(res, 200, { ok: true, config: merged });
       }
     }
     return sendJson(res, 404, { ok: false, error: "Not Found" });

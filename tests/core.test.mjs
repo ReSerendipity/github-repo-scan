@@ -1,7 +1,10 @@
 // 冒烟测试：node --test
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { ciStateOf, relTime, fullTime, renderDashboard, scoreOf, gradeOf, applyJq } from "../scan-core.mjs";
+import { ciStateOf, relTime, fullTime, renderDashboard, scoreOf, gradeOf, applyJq, parseRemoteUrl, findGitRepos, matchLocalToRemote, applyLocalTotals } from "../scan-core.mjs";
+import { mkdtempSync, mkdirSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 test("ciStateOf：无运行记录", () => {
   const s = ciStateOf(null);
@@ -118,4 +121,88 @@ test("applyJq:直连兜底的极简点路径", () => {
   assert.equal(applyJq({ login: "x" }, ".login"), "x");
   assert.deepEqual(applyJq({ resources: { core: { remaining: 5 } } }, ".resources.core"), { remaining: 5 });
   assert.equal(applyJq({}, ".a.b"), undefined);
+});
+
+test("parseRemoteUrl:https/ssh/scp 与非 GitHub", () => {
+  assert.deepEqual(parseRemoteUrl("https://github.com/Me/My.Repo.git"), { host: "github.com", owner: "Me", repo: "My.Repo", isGitHub: true });
+  assert.deepEqual(parseRemoteUrl("git@github.com:me/repo.git"), { host: "github.com", owner: "me", repo: "repo", isGitHub: true });
+  assert.deepEqual(parseRemoteUrl("ssh://git@github.com/me/repo/"), { host: "github.com", owner: "me", repo: "repo", isGitHub: true });
+  assert.equal(parseRemoteUrl("https://github.com/u/repo.github.io.git").repo, "repo.github.io");
+  assert.equal(parseRemoteUrl("https://gitlab.com/g/r.git").isGitHub, false);
+  assert.equal(parseRemoteUrl("not a url"), null);
+  assert.equal(parseRemoteUrl(null), null);
+});
+
+test("findGitRepos:深度、剪枝与去重", () => {
+  const base = mkdtempSync(join(tmpdir(), "grs-test-"));
+  try {
+    mkdirSync(join(base, "a", "repo1", ".git"), { recursive: true });
+    mkdirSync(join(base, "a", "sub", "repo2", ".git"), { recursive: true });
+    mkdirSync(join(base, "a", "node_modules", "evil", ".git"), { recursive: true });
+    mkdirSync(join(base, "b", "deep", "d2", "d3", "d4", "repo3", ".git"), { recursive: true });
+    mkdirSync(join(base, "b", ".hidden", "repo4", ".git"), { recursive: true });
+    const found = findGitRepos([base], 4);
+    const names = found.map((p) => p.slice(base.length + 1));
+    assert.ok(names.includes(join("a", "repo1")));
+    assert.ok(names.includes(join("a", "sub", "repo2")));
+    assert.ok(!names.some((p) => p.includes("node_modules")), "node_modules 应被剪枝");
+    assert.ok(!names.some((p) => p.includes("repo3")), "超出深度不应找到");
+    assert.ok(!names.some((p) => p.includes("hidden")), "隐藏目录应被剪枝");
+    const twice = findGitRepos([base, base], 4);
+    assert.equal(twice.length, found.length, "重复根不应产生重复结果");
+  } finally {
+    rmSync(base, { recursive: true, force: true });
+  }
+});
+
+test("matchLocalToRemote:owner/repo 精准、按名兜底与本地独有", () => {
+  const data = { rows: [
+    { name: "a", url: "https://github.com/me/a" },
+    { name: "b", url: "https://github.com/me/b" },
+    { name: "dup", url: "https://github.com/me/dup" },
+    { name: "dup", url: "https://github.com/me/dup2" },
+  ] };
+  const ls = { repos: [
+    { name: "a", path: "P1", github: { owner: "me", repo: "a", isGitHub: true }, dirty: true, dirtyCount: 2, ahead: 1, behind: null },
+    { name: "b", path: "P2", github: { owner: "other", repo: "b", isGitHub: true } },
+    { name: "dup", path: "P3", github: { owner: "x", repo: "dup", isGitHub: true } },
+    { name: "orphan", path: "P4", github: null, remoteUrl: null },
+  ] };
+  const res = matchLocalToRemote(data, ls);
+  assert.equal(res.matched, 2);
+  assert.equal(data.rows[0].local.path, "P1");
+  assert.equal(data.rows[0].local.dirty, true);
+  assert.equal(data.rows[1].local.path, "P2", "owner 不同时按唯一同名兜底");
+  assert.equal(data.rows[2].local, null, "同名多候选不应乱配");
+  assert.equal(ls.repos[2].matchType, "ambiguous");
+  assert.equal(ls.localOnlyCount, 2);
+  assert.equal(ls.matched, 2);
+});
+
+test("applyLocalTotals:有/无本地扫描", () => {
+  const d1 = { rows: [{ local: { path: "p" } }, { local: null }], localScan: { count: 2, matched: 1, localOnlyCount: 1, repos: [{ dirty: true }, { dirty: false, ahead: 2, behind: 0 }] }, totals: {} };
+  applyLocalTotals(d1);
+  assert.equal(d1.totals.localTotal, 2);
+  assert.equal(d1.totals.localMatched, 1);
+  assert.equal(d1.totals.localMissing, 1);
+  assert.equal(d1.totals.localDirty, 1);
+  assert.equal(d1.totals.localDiverged, 1);
+  const d2 = { rows: [], localScan: null, totals: {} };
+  applyLocalTotals(d2);
+  assert.equal(d2.totals.localTotal, null);
+});
+
+test("renderDashboard:本地对照列/模式切换/本地独有区块就位", () => {
+  const data = { schema: 3, owner: "demo", avatarUrl: "", scannedAt: "2026-09-21T00:00:00Z", truncated: false, rate: null,
+    totals: { repos: 0, totalRepos: 0, stars: 0, forks: 0, openIssues: 0, openPRs: 0, releases: 0, ciDone: 0, ciOk: 0, localTotal: 0, localMatched: 0, localMissing: 0, localOnly: 0, localDirty: 0, localDiverged: 0 },
+    rows: [],
+    localScan: { scannedAt: "2026-09-22T00:00:00Z", roots: ["C:\\x"], depth: 4, count: 0, matched: 0, localOnlyCount: 0, repos: [] } };
+  const html = renderDashboard(data);
+  assert.ok(html.includes('data-key="local"'), "应有本地列表头");
+  assert.ok(html.includes('id="localOnlyBox"'), "应有本地独有区块");
+  assert.ok(html.includes('id="scanLocalBtn"'), "应有仅扫本地按钮");
+  assert.ok(html.includes('id="modeLocal"'), "应有模式切换");
+  assert.ok(html.includes('id="cfgBtn"'), "应有本地目录设置");
+  assert.ok(html.includes('colspan="13"'), "列数应为 13");
+  assert.ok(!html.includes('colspan="12"'), "不应残留 12 列占位");
 });
