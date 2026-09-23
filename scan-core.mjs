@@ -888,6 +888,9 @@ export function renderDashboard(data) {
   .lang-row .ct { color: var(--text2); }
   .lang-row .bar { height: 6px; border-radius: 4px; background: var(--rowborder); overflow: hidden; }
   .lang-row .bar > i { display: block; height: 100%; border-radius: 4px; }
+  .lang-row .rk { color: var(--accent); font-weight: 700; margin-right: 6px; }
+  .lang-row a.nm { color: var(--text1); font-weight: 600; text-decoration: none; }
+  .lang-row a.nm:hover { color: var(--accent); text-decoration: underline; }
 </style>
 </head>
 <body>
@@ -911,6 +914,7 @@ export function renderDashboard(data) {
   <div class="metrics" id="metrics"></div>
   <div class="alert-box" id="alertBox"></div>
   <div class="lang-box" id="langBox"></div>
+  <div class="lang-box" id="rankBox"></div>
 
   <div class="toolbar">
     <input id="q" type="search" placeholder="搜索仓库名 / 描述…">
@@ -929,6 +933,7 @@ export function renderDashboard(data) {
       <option value="noLocal">本地缺失</option>
       <option value="dirtyLocal">本地有未提交改动</option>
       <option value="aheadLocal">本地与远程不一致</option>
+      <option value="archived">仅归档仓库</option>
     </select>
     <span class="modes" id="modeBox" style="display:none">
       <button id="modeBoth" class="btn on" type="button" title="远程扫描结果 + 每仓本地对照状态">远程+本地对照</button>
@@ -1126,6 +1131,7 @@ window.__SCAN_DATA__ = ${jsonStr};
     if (state.fStatus === 'pub' && r.visibility !== 'PUBLIC') return false;
     if (state.fStatus === 'priv' && r.visibility !== 'PRIVATE') return false;
     if (state.fStatus === 'lowScore' && scoreOf(r) >= 50) return false;
+    if (state.fStatus === 'archived' && !r.isArchived) return false;
     if (state.fStatus === 'fail' && r.ci.cls !== 'fail') return false;
     if (state.fStatus === 'running' && r.ci.cls !== 'running') return false;
     if (state.fStatus === 'none' && r.ci.cls !== 'none') return false;
@@ -1389,13 +1395,15 @@ window.__SCAN_DATA__ = ${jsonStr};
     var low = d.rows.filter(function (r) { return scoreOf(r) < 50; }).length;
     var noLicC = d.rows.filter(function (r) { return !r.license; }).length;
     var noLocalC = d.localScan ? d.rows.filter(function (r) { return !r.local; }).length : 0;
+    var archivedC = d.rows.filter(function (r) { return r.isArchived; }).length;
     var chips = [];
-    function chip(cls, n, label, status) { if (n > 0) chips.push('<button class="alert-chip ' + cls + '" data-status="' + status + '" title="点击筛出这些仓库">⚠ <span class="n">' + n + '</span> ' + label + '</button>'); }
+    function chip(cls, n, label, status, plain) { if (n > 0) chips.push('<button class="alert-chip ' + cls + '" data-status="' + status + '" title="点击筛出这些仓库">' + (plain ? '' : '⚠ ') + '<span class="n">' + n + '</span> ' + label + '</button>'); }
     chip('fail', ciFail, '个仓库 CI 失败', 'fail');
     chip('warn', low, '个低健康分(&lt;50)', 'lowScore');
     chip('warn', noLicC, '个未声明许可证', 'noLic');
     chip('', ciNone, '个无 CI 记录', 'none');
     chip('', noLocalC, '个本地缺失', 'noLocal');
+    chip('', archivedC, '个归档仓库', 'archived', true);
     document.getElementById('alertBox').innerHTML = chips.length ? '<span class="lbl">聚合视图：</span>' + chips.join('') : '';
 
     // 语言分布：按仓库数 Top 排序，条长按占比
@@ -1415,6 +1423,16 @@ window.__SCAN_DATA__ = ${jsonStr};
         '<div class="bar"><i style="width:' + Math.round(x.count / maxLang * 100) + '%;background:' + col + '"></i></div></div>';
     }).join('');
     document.getElementById('langBox').innerHTML = langHtml ? '<span class="lbl">语言分布（Top ' + langArr.length + '）：</span>' + langHtml : '';
+
+    // Star 排行榜：Top 5（条长按占比）
+    var starArr = d.rows.slice().sort(function (a, b) { return b.stars - a.stars; }).slice(0, 5);
+    var maxStar = starArr.length ? starArr[0].stars : 1;
+    var rankHtml = starArr.map(function (x, i) {
+      var pct = maxStar > 0 ? Math.round(x.stars / maxStar * 100) : 0;
+      return '<div class="lang-row"><div class="top"><span><span class="rk">#' + (i + 1) + '</span><a class="nm" href="' + esc(x.url) + '" target="_blank" rel="noopener">' + esc(x.name) + '</a></span><span class="ct">' + x.stars + ' ★</span></div>' +
+        '<div class="bar"><i style="width:' + pct + '%;background:var(--accent)"></i></div></div>';
+    }).join('');
+    document.getElementById('rankBox').innerHTML = rankHtml ? '<span class="lbl">Star 排行 Top 5：</span>' + rankHtml : '';
 
     rebuildLangOptions();
 

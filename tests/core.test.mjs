@@ -210,6 +210,8 @@ test("renderDashboard:本地对照列/模式切换/本地独有区块就位", ()
   assert.ok(html.includes('id="cloneBtn"'), "应有复制 clone 按钮");
   assert.ok(html.includes('id="alertBox"'), "应有聚合视图面板");
   assert.ok(html.includes('id="langBox"'), "应有语言分布面板");
+  assert.ok(html.includes('id="rankBox"'), "应有 Star 排行榜面板");
+  assert.ok(html.includes('value="archived"'), "应有仅归档筛选选项");
   assert.ok(html.includes('data-key="createdAt"'), "应有创建时间表头");
   assert.ok(html.includes('colspan="17"'), "列数应为 17");
   assert.ok(!html.includes('colspan="16"'), "不应残留 16 列占位");
