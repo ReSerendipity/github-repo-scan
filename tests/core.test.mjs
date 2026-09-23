@@ -1,7 +1,7 @@
 // 冒烟测试：node --test
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { ciStateOf, relTime, fullTime, renderDashboard, scoreOf, gradeOf, applyJq, parseRemoteUrl, findGitRepos, matchLocalToRemote, applyLocalTotals, fmtSize } from "../scan-core.mjs";
+import { ciStateOf, relTime, fullTime, renderDashboard, scoreOf, gradeOf, applyJq, parseRemoteUrl, findGitRepos, matchLocalToRemote, applyLocalTotals, fmtSize, computeStarWeek } from "../scan-core.mjs";
 import { mkdtempSync, mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -245,4 +245,41 @@ test("renderDashboard:可见性/大小/最近变更 已接入模板与脚本", (
   assert.equal(fmtSize(1024), "1.0 MB");
   assert.equal(fmtSize(2048), "2.0 MB");
   assert.equal(fmtSize(1048576), "1.00 GB");
+});
+
+test("computeStarWeek：基于历史快照计算近 7 天 Star 增量", () => {
+  const now = "2026-09-23T00:00:00Z";
+  const weekAgo = "2026-09-15T00:00:00Z";
+  const data = {
+    scannedAt: now,
+    rows: [
+      { name: "a", stars: 120 },
+      { name: "b", stars: 50 },
+      { name: "c", stars: 10 },
+    ],
+  };
+  const hist = [
+    { t: weekAgo, repos: { a: 100, b: 55, c: 10 } },
+    { t: "2026-09-20T00:00:00Z", repos: { a: 110, b: 52, c: 10 } },
+  ];
+  computeStarWeek(data, hist);
+  assert.equal(data.starWeekRef, weekAgo, "应取 7 天前的快照作基准");
+  assert.equal(data.rows[0].starWeek, 20, "120 - 100 = +20");
+  assert.equal(data.rows[1].starWeek, -5, "50 - 55 = -5");
+  assert.equal(data.rows[2].starWeek, 0, "10 - 10 = 0");
+});
+
+test("computeStarWeek：历史不足 6 天应返回 null（不编造数据）", () => {
+  const data = { scannedAt: "2026-09-23T00:00:00Z", rows: [{ name: "a", stars: 10 }] };
+  const hist = [{ t: "2026-09-22T00:00:00Z", repos: { a: 5 } }]; // 仅 1 天前
+  computeStarWeek(data, hist);
+  assert.equal(data.rows[0].starWeek, null);
+  assert.equal(data.starWeekRef, null);
+});
+
+test("computeStarWeek：无历史应返回 null", () => {
+  const data = { scannedAt: "2026-09-23T00:00:00Z", rows: [{ name: "a", stars: 10 }] };
+  computeStarWeek(data, []);
+  assert.equal(data.rows[0].starWeek, null);
+  assert.equal(data.starWeekRef, null);
 });

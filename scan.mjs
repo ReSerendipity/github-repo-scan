@@ -41,7 +41,7 @@ try {
     printSummary(data);
   } else {
     const data = await collectData(ownerArg, { local: !remoteOnly, roots: localPaths, depth });
-    writeOutputs(data);
+    writeOutputs(data, true);
     printSummary(data);
   }
 } catch (err) {

@@ -674,7 +674,64 @@ export async function collectData(ownerArg, opts = {}) {
 }
 
 /* ---------------- 产物输出 ---------------- */
-export function writeOutputs(data) {
+// Star 周增长趋势：本地扫描快照历史（按自然日去重，仅远程全量扫描写入）
+const HISTORY_FILE = join(HERE, "scan-data-history.json");
+const HISTORY_MAX = 400; // 约 > 1 年（按天去重后）
+
+export function loadStarHistory() {
+  try {
+    const h = JSON.parse(readFileSync(HISTORY_FILE, "utf8"));
+    return Array.isArray(h) ? h : [];
+  } catch { return []; }
+}
+
+// 记录一次扫描快照（按自然日去重，仅远程全量扫描调用）
+export function recordStarHistory(data) {
+  const t = data.scannedAt || new Date().toISOString();
+  const day = String(t).slice(0, 10);
+  const repos = {};
+  for (const r of data.rows || []) repos[r.name] = r.stars || 0;
+  let hist = loadStarHistory();
+  const idx = hist.findIndex((e) => String(e.t).slice(0, 10) === day);
+  const entry = { t, repos };
+  if (idx >= 0) hist[idx] = entry; else hist.push(entry);
+  hist.sort((a, b) => new Date(a.t) - new Date(b.t));
+  if (hist.length > HISTORY_MAX) hist = hist.slice(hist.length - HISTORY_MAX);
+  writeFileSync(HISTORY_FILE, JSON.stringify(hist), "utf8");
+  return hist;
+}
+
+// 计算每个仓库近 7 天 Star 增量，写入 r.starWeek 与 data.starWeekRef
+// hist 可外部注入（便于测试），默认从本地历史文件读取；历史不足 6 天则全部置 null（不编造数据）
+export function computeStarWeek(data, hist) {
+  hist = hist || loadStarHistory();
+  const now = new Date(data.scannedAt || Date.now()).getTime();
+  const target = now - 7 * 86400000;
+  let chosen = null;
+  for (const e of hist) {
+    const et = new Date(e.t).getTime();
+    if (et <= target) {
+      if (!chosen || et > new Date(chosen.t).getTime()) chosen = e;
+    }
+  }
+  if (chosen && (now - new Date(chosen.t).getTime()) >= 6 * 86400000) {
+    data.starWeekRef = chosen.t;
+    for (const r of data.rows || []) {
+      const prev = chosen.repos[r.name];
+      r.starWeek = (typeof prev === "number") ? (r.stars || 0) - prev : null;
+    }
+  } else {
+    data.starWeekRef = null;
+    for (const r of data.rows || []) r.starWeek = null;
+  }
+  return data;
+}
+
+export function writeOutputs(data, withHistory = false) {
+  if (withHistory) {
+    try { recordStarHistory(data); } catch { /* 历史写入失败不影响主产物 */ }
+    try { computeStarWeek(data); } catch { /* 同上 */ }
+  }
   writeFileSync(join(HERE, "scan-data.json"), JSON.stringify(data, null, 2), "utf8");
   writeFileSync(join(HERE, "dashboard.html"), renderDashboard(data), "utf8");
 }
@@ -894,6 +951,24 @@ export function renderDashboard(data) {
   .rank-metric { background: var(--bg); border: 1px solid var(--border); color: var(--text2); border-radius: 999px; padding: 2px 10px; font-size: 12px; cursor: pointer; font-family: inherit; margin-left: 4px; }
   .rank-metric:hover { border-color: var(--accent); color: var(--accent); }
   .rank-metric.on { border-color: var(--accent); color: var(--accent); font-weight: 700; }
+
+  /* 聚合视图可折叠 */
+  .agg-wrap { border: 1px solid var(--border); border-radius: 12px; background: var(--panel); margin: 0 0 14px; overflow: hidden; }
+  .agg-head { display: flex; align-items: center; }
+  .agg-toggle { display: flex; align-items: center; gap: 8px; width: 100%; padding: 10px 16px; background: transparent; border: none; cursor: pointer; font-family: inherit; color: var(--text1); font-size: 14px; font-weight: 600; }
+  .agg-toggle:hover { color: var(--accent); }
+  .agg-toggle .chev { display: inline-block; transition: transform .18s ease; font-size: 12px; }
+  .agg-wrap.collapsed .chev { transform: rotate(-90deg); }
+  .agg-body { padding: 0 16px 14px; }
+  .agg-wrap.collapsed .agg-body { display: none; }
+  .agg-wrap .alert-box, .agg-wrap .lang-box { border: none; background: transparent; padding: 0; margin: 0 0 12px; }
+  .agg-wrap .metrics { margin-bottom: 12px; }
+
+  /* Star 周增长趋势（红涨绿跌，遵循 A 股惯例） */
+  .trend { font-weight: 700; font-size: 12px; white-space: nowrap; }
+  .trend.up { color: var(--fail); }
+  .trend.down { color: var(--ok); }
+  .trend.flat { color: var(--muted); }
 </style>
 </head>
 <body>
@@ -914,11 +989,21 @@ export function renderDashboard(data) {
   </header>
   <div class="hint" id="scanHint"></div>
 
-  <div class="metrics" id="metrics"></div>
-  <div class="alert-box" id="alertBox"></div>
-  <div class="lang-box" id="langBox"></div>
-  <div class="lang-box" id="rankBox"></div>
-  <div class="lang-box" id="archivedBox"></div>
+  <div class="agg-wrap" id="aggWrap">
+    <div class="agg-head">
+      <button class="agg-toggle" id="aggToggle" type="button" aria-expanded="true" title="折叠/展开聚合视图（偏好记入浏览器本地）">
+        <span class="chev" id="aggChev">▾</span>
+        <span>聚合视图（点击折叠/展开）</span>
+      </button>
+    </div>
+    <div class="agg-body" id="aggBody">
+      <div class="metrics" id="metrics"></div>
+      <div class="alert-box" id="alertBox"></div>
+      <div class="lang-box" id="langBox"></div>
+      <div class="lang-box" id="rankBox"></div>
+      <div class="lang-box" id="archivedBox"></div>
+    </div>
+  </div>
 
   <div class="toolbar">
     <input id="q" type="search" placeholder="搜索仓库名 / 描述…">
@@ -979,6 +1064,7 @@ export function renderDashboard(data) {
           <th class="sortable" data-key="issues" title="点击按开放 Issue 数排序">Issue<span class="arr" data-arr="issues"></span></th>
           <th class="sortable" data-key="branches" title="点击按分支数排序">分支<span class="arr" data-arr="branches"></span></th>
           <th class="sortable" data-key="stars" title="点击按 Star 数排序">Star<span class="arr" data-arr="stars"></span></th>
+          <th class="sortable" data-key="starWeek" title="点击按近 7 天 Star 增量排序（基于本地扫描快照历史，需 ≥6 天历史；红涨绿跌）">近7天★<span class="arr" data-arr="starWeek"></span></th>
           <th class="sortable" data-key="forks" title="点击按 Fork 数排序">Fork<span class="arr" data-arr="forks"></span></th>
           <th class="sortable" data-key="language" title="点击按语言排序">语言<span class="arr" data-arr="language"></span></th>
           <th class="sortable" data-key="size" title="点击按仓库大小排序（GitHub 返回的磁盘占用，单位 KB）">大小<span class="arr" data-arr="size"></span></th>
@@ -1095,6 +1181,7 @@ window.__SCAN_DATA__ = ${jsonStr};
     issues: function (r) { return r.openIssues; },
     branches: function (r) { return r.branches; },
     stars: function (r) { return r.stars; },
+    starWeek: function (r) { return (r.starWeek == null) ? null : r.starWeek; },
     forks: function (r) { return r.forks; },
     language: function (r) { return r.language ? r.language.toLowerCase() : null; },
     pushedAt: function (r) { return r.pushedAt; },
@@ -1351,6 +1438,7 @@ window.__SCAN_DATA__ = ${jsonStr};
       '<td class="num">' + issue + '</td>' +
       '<td>' + branch + '</td>' +
       '<td class="num">' + star + '</td>' +
+      '<td class="num">' + starWeekCell(r) + '</td>' +
       '<td class="num">' + fork + '</td>' +
       '<td><span class="lang"><span class="ldot" style="background:' + esc(r.langColor) + '"></span>' + esc(r.language || '—') + '</span></td>' +
       '<td class="num">' + sizeCell(r) + '</td>' +
@@ -1366,7 +1454,7 @@ window.__SCAN_DATA__ = ${jsonStr};
     if (!d) {
       document.getElementById('scanMeta').textContent = '尚未扫描';
       document.getElementById('metrics').innerHTML = '';
-      document.getElementById('tbody').innerHTML = '<tr><td class="empty" colspan="17">暂无数据 —— 点击右上角「重新扫描」开始第一次扫描（需已启动 node server.mjs）</td></tr>';
+      document.getElementById('tbody').innerHTML = '<tr><td class="empty" colspan="18">暂无数据 —— 点击右上角「重新扫描」开始第一次扫描（需已启动 node server.mjs）</td></tr>';
       return;
     }
     var avatar = document.getElementById('avatar');
@@ -1380,12 +1468,19 @@ window.__SCAN_DATA__ = ${jsonStr};
     var pub = d.rows.filter(function (r) { return r.visibility === 'PUBLIC'; }).length;
     var priv = d.rows.filter(function (r) { return r.visibility === 'PRIVATE'; }).length;
     var totalSize = fmtSize(t.sizeTotal || 0);
+    var weekStars = null;
+    if (d.starWeekRef) {
+      var ws = 0, hasW = false;
+      for (var wi = 0; wi < d.rows.length; wi++) { if (d.rows[wi].starWeek != null) { ws += d.rows[wi].starWeek; hasW = true; } }
+      if (hasW) weekStars = ws;
+    }
     document.getElementById('metrics').innerHTML =
       metric(t.repos, '仓库') +
       metric(pub, '公开') +
       metric(priv, '私有') +
       metric(totalSize, '总大小') +
       metric(t.stars, 'Star 合计') +
+      metric(weekStars == null ? '—' : (weekStars > 0 ? '+' : '') + weekStars, '本周新增★') +
       metric(t.forks, 'Fork 合计') +
       metric(t.openIssues + '<span class="vsub"> +' + t.openPRs + ' PR</span>', '开放 Issue') +
       metric(t.releases, '发布合计') +
@@ -1442,6 +1537,9 @@ window.__SCAN_DATA__ = ${jsonStr};
     var rankHtml = rankArr.map(function (x, i) {
       var v = rm.get(x); var pct = maxRank > 0 ? Math.round(v / maxRank * 100) : 0;
       var valTxt = (rm.key === 'stars' ? v + ' ' : '') + rm.unit;
+      if (rm.key === 'stars' && x.starWeek != null) {
+        valTxt += ' <span class="trend ' + (x.starWeek > 0 ? 'up' : (x.starWeek < 0 ? 'down' : 'flat')) + '" title="近 7 天 Star 变化">' + (x.starWeek > 0 ? '+' : '') + x.starWeek + '/周</span>';
+      }
       return '<div class="lang-row"><div class="top"><span><span class="rk">#' + (i + 1) + '</span><a class="nm" href="' + esc(x.url) + '" target="_blank" rel="noopener">' + esc(x.name) + '</a></span><span class="ct">' + valTxt + '</span></div>' +
         '<div class="bar"><i style="width:' + pct + '%;background:var(--accent)"></i></div></div>';
     }).join('');
@@ -1603,7 +1701,7 @@ window.__SCAN_DATA__ = ${jsonStr};
   }
   function exportCsv() {
     var rows = visibleRows();
-    var head = ['仓库', '可见性', '本地状态', '健康分', '健康等级', 'CI', '许可证', 'Release', 'Issue', 'PR', '分支', 'Star', 'Fork', '语言', '大小(KB)', '流量浏览', '流量克隆', '最近变更文件数', '最近推送', 'URL'];
+    var head = ['仓库', '可见性', '本地状态', '健康分', '健康等级', 'CI', '许可证', 'Release', 'Issue', 'PR', '分支', 'Star', '近7天★', 'Fork', '语言', '大小(KB)', '流量浏览', '流量克隆', '最近变更文件数', '最近推送', 'URL'];
     var lines = [head.map(csvCell).join(',')];
     for (var i = 0; i < rows.length; i++) {
       var r = rows[i];
@@ -1615,7 +1713,7 @@ window.__SCAN_DATA__ = ${jsonStr};
         : '本地缺失';
       lines.push([
         r.name, vis, local, scoreOf(r), g.g, r.ci.state, r.license || '',
-        r.latestRelease ? r.latestRelease.tag : '', r.openIssues, r.openPRs, r.branches, r.stars, r.forks,
+        r.latestRelease ? r.latestRelease.tag : '', r.openIssues, r.openPRs, r.branches, r.stars, r.starWeek == null ? '' : r.starWeek, r.forks,
         r.language || '', r.size || 0, r.traffic ? r.traffic.views : '', r.traffic ? r.traffic.clones : '',
         r.lastCommit ? r.lastCommit.fileCount : '', relTime(r.pushedAt), r.url,
       ].map(csvCell).join(','));
@@ -1741,6 +1839,16 @@ window.__SCAN_DATA__ = ${jsonStr};
           document.getElementById('fAutoScanStart').checked = (m === 'always' || m === 'stale');
         }
       }).catch(function () {});
+
+    // 聚合视图折叠：从 localStorage 恢复偏好，点击切换
+    var aggWrap = document.getElementById('aggWrap');
+    var aggToggle = document.getElementById('aggToggle');
+    function setAggCollapsed(c) {
+      if (c) aggWrap.classList.add('collapsed'); else aggWrap.classList.remove('collapsed');
+      try { localStorage.setItem('aggCollapsed', c ? '1' : '0'); } catch (e) {}
+    }
+    try { if (localStorage.getItem('aggCollapsed') === '1') aggWrap.classList.add('collapsed'); } catch (e) {}
+    aggToggle.addEventListener('click', function () { setAggCollapsed(!aggWrap.classList.contains('collapsed')); });
 
     rebuildViewOptions();
     document.getElementById('fView').addEventListener('change', function () {

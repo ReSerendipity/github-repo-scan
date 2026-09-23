@@ -111,7 +111,7 @@ const server = http.createServer(async (req, res) => {
       console.log("▸ [" + new Date().toLocaleTimeString("zh-CN", { hour12: false }) + "] 收到扫描请求" + (body.owner ? "（账号 " + body.owner + "）" : "") + "…");
       try {
         const data = await collectData(body.owner);
-        writeOutputs(data);
+        writeOutputs(data, true);
         console.log("✔ 扫描完成：" + data.totals.repos + " 个仓库 · CI 通过 " + data.totals.ciOk + "/" + data.totals.ciDone + " · dashboard.html / scan-data.json 已更新");
         return sendJson(res, 200, { ok: true, data });
       } catch (e) {
@@ -212,7 +212,7 @@ if (decideStartupScan()) {
   console.log("▸ 启动前自动扫描（模式 " + _scanMode + "，约 20–40 秒）…");
   try {
     const d = await collectData();
-    writeOutputs(d);
+    writeOutputs(d, true);
     console.log("✔ 启动前扫描完成：" + d.totals.repos + " 个仓库 · dashboard.html / scan-data.json 已更新");
   } catch (e) {
     console.error("✖ 启动前扫描失败，改用现有快照：" + (e?.message ?? e));
