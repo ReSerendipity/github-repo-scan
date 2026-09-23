@@ -15,6 +15,7 @@
 | 本地范围/深度 | `node scan.mjs --local-paths "a;b" --depth 5` | 临时指定本地扫描根目录（分号分隔）与深度 |
 | 仅远程 | `node scan.mjs --remote-only` | 跳过本地对照 |
 | 仅重渲染 | `node scan.mjs --render-only` | 不重新扫描，按现有快照重渲染面板（改样式/主题后用） |
+| 启动前自动扫描 | `node server.mjs --scan-on-start=always` | 每次启动面板先扫描（约 20–40 秒）再开页面；模式 `always`/`stale`/`first`/`off`，默认 `stale`（快照比 `autoScanMaxAgeHours` 旧才扫），由 `scan-config.json` 的 `autoScanOnStart` 控制，面板「启动前扫描」开关可联动切换 `always`/`off` |
 
 指定账号：默认扫当前 gh 登录账号；`node scan.mjs someUser` 可扫指定账号。
 
@@ -40,6 +41,17 @@
 | Issue | 开放 issue 数（不含 PR），点击直达 issues 页；开放 PR 数单独列出并链接 |
 | 分支 | 默认分支名 + 分支总数，点击直达 branches 页 |
 | 仓库信息 | star / fork / 主语言 / 描述 / 可见性 / 最近推送，均链接到对应 GitHub 页面 |
+| 可见性排序/筛选 | 「可见性」列可点表头按公开/私有排序（私有优先）；状态筛选下拉含「仅公开 / 仅私有」；顶部指标卡显示公开/私有数量 |
+| 仓库大小 | 「大小」列显示 GitHub 磁盘占用（自动 KB/MB/GB 换算），可点表头排序；顶部指标卡显示总大小 |
+| 最近变更文件 | 「最近变更」列显示最近一次提交变更的文件数，点「N 文件」就地展开文件清单（A 增 / M 改 / D 删，带 +− 行数，链接到提交页） |
+| 导出 CSV | 右上角「导出 CSV」把当前筛选/排序结果导出为 UTF-8（带 BOM）CSV，Excel 可直接打开 |
+| 隐藏归档 | 工具栏「隐藏归档」复选框一键隐藏 archived 仓库 |
+| 低健康分筛选 | 状态筛选「仅低健康分(<50)」快速定位问题仓库 |
+| 启动前自动扫描 | 面板「启动前扫描」开关 + `scan-config.json` 的 `autoScanOnStart`（always/stale/first/off），双击启动面板可先自动扫描再打开 |
+| 创建时间排序 | 「创建时间」列可点表头按仓库创建时间排序 |
+| 语言分布 | 顶部「语言分布」面板按仓库数 Top 8 展示各语言占比条（颜色取自 GitHub 语言色） |
+| 聚合视图 | 顶部「聚合视图」面板一键列出 CI 失败 / 低健康分(<50) / 未声明许可证 / 无 CI 记录 / 本地缺失 的数量，点 chip 直接套用对应筛选 |
+| 复制 clone | 右上角「复制 clone」把当前可见仓库的 `git clone <url>` 命令批量复制到剪贴板（Excel/终端可直接粘贴） |
 
 ## 本地 Git 仓库扫描（对照 + 独立）
 
@@ -49,7 +61,7 @@
 - **扫描范围**：默认 = 用户主目录（只看 1 层）+ 桌面 / 文档 / 下载（深度 4）；`scan-config.json` 的 `localScanRoots`（字符串或 `{ "path": "...", "depth": 2 }`）+ `localScanDepth` 持久配置，`--local-paths` / `--depth` 临时覆盖，面板「本地目录…」可视化保存。隐藏目录、`node_modules` 等重目录、符号链接自动跳过，最多 500 个仓库。
 - **对照规则**：本地 remote URL 解析出 `owner/repo` 与远程精确匹配；无 GitHub remote 或 owner 不同但仓库名唯一时按名字兜底；同名多候选不猜（标记 ambiguous，进「本地独有」）。
 - **依赖**：git 在 PATH 即可，无需 gh 登录；`--remote-only` 可关掉本地对照。
-- **配置文件**：`scan-config.json` 含本机路径，已加入 `.gitignore` 不入库。
+- **配置文件**：`scan-config.json` 含本机路径，已加入 `.gitignore` 不入库；还可配置 `autoScanOnStart`（启动前自动扫描模式：`always`/`stale`/`first`/`off`，默认 `stale`）与 `autoScanMaxAgeHours`（stale 模式下判定「过期」的小时数，默认 6）。
 
 ## 性能与增量
 

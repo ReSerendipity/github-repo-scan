@@ -1,7 +1,7 @@
 // 冒烟测试：node --test
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { ciStateOf, relTime, fullTime, renderDashboard, scoreOf, gradeOf, applyJq, parseRemoteUrl, findGitRepos, matchLocalToRemote, applyLocalTotals } from "../scan-core.mjs";
+import { ciStateOf, relTime, fullTime, renderDashboard, scoreOf, gradeOf, applyJq, parseRemoteUrl, findGitRepos, matchLocalToRemote, applyLocalTotals, fmtSize } from "../scan-core.mjs";
 import { mkdtempSync, mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -203,6 +203,42 @@ test("renderDashboard:本地对照列/模式切换/本地独有区块就位", ()
   assert.ok(html.includes('id="scanLocalBtn"'), "应有仅扫本地按钮");
   assert.ok(html.includes('id="modeLocal"'), "应有模式切换");
   assert.ok(html.includes('id="cfgBtn"'), "应有本地目录设置");
-  assert.ok(html.includes('colspan="13"'), "列数应为 13");
-  assert.ok(!html.includes('colspan="12"'), "不应残留 12 列占位");
+  assert.ok(html.includes('id="csvBtn"'), "应有导出 CSV 按钮");
+  assert.ok(html.includes('data-key="visibility"'), "应有可见性表头");
+  assert.ok(html.includes('data-key="size"'), "应有大小表头");
+  assert.ok(html.includes('data-key="files"'), "应有最近变更表头");
+  assert.ok(html.includes('id="cloneBtn"'), "应有复制 clone 按钮");
+  assert.ok(html.includes('id="alertBox"'), "应有聚合视图面板");
+  assert.ok(html.includes('id="langBox"'), "应有语言分布面板");
+  assert.ok(html.includes('data-key="createdAt"'), "应有创建时间表头");
+  assert.ok(html.includes('colspan="17"'), "列数应为 17");
+  assert.ok(!html.includes('colspan="16"'), "不应残留 16 列占位");
+});
+
+test("renderDashboard:可见性/大小/最近变更 已接入模板与脚本", () => {
+  const data = {
+    schema: 3, owner: "demo", avatarUrl: "", scannedAt: "2026-09-21T00:00:00Z", truncated: false, rate: null,
+    totals: { repos: 2, totalRepos: 2, stars: 0, forks: 0, openIssues: 0, openPRs: 0, releases: 0, ciDone: 0, ciOk: 0, sizeTotal: 2048 },
+    rows: [
+      { name: "pub-repo", url: "u", description: "d", visibility: "PUBLIC", isArchived: false, isFork: false, createdAt: "2026-01-01T00:00:00Z", pushedAt: "2026-09-21T00:00:00Z", stars: 0, forks: 0, size: 1024, openIssues: 0, openPRs: 0, branches: 1, defaultBranch: "main", license: null, licenseUrl: null, releases: 0, latestRelease: null, ci: { state: "无 CI 记录", cls: "none", workflow: null, ref: null, ranAt: null, url: null, trend: [] }, language: "Python", langColor: "#3572A5", lastCommit: null },
+      { name: "priv-repo", url: "u", description: "d", visibility: "PRIVATE", isArchived: false, isFork: false, createdAt: "2026-01-01T00:00:00Z", pushedAt: "2026-09-21T00:00:00Z", stars: 0, forks: 0, size: 1024, openIssues: 0, openPRs: 0, branches: 1, defaultBranch: "main", license: null, licenseUrl: null, releases: 0, latestRelease: null, ci: { state: "无 CI 记录", cls: "none", workflow: null, ref: null, ranAt: null, url: null, trend: [] }, language: "Go", langColor: "#00ADD8", lastCommit: null },
+    ],
+  };
+  const html = renderDashboard(data);
+  // 行级内容由前端 JS 渲染，静态模板里只含 thead / 控件 / 脚本；这里校验功能已正确接线
+  assert.ok(html.includes('data-key="visibility"'), "应有可见性表头");
+  assert.ok(html.includes('data-key="size"'), "应有大小表头");
+  assert.ok(html.includes('data-key="files"'), "应有最近变更表头");
+  assert.ok(html.includes('id="csvBtn"'), "应有导出 CSV 按钮");
+  assert.ok(html.includes('id="fNoArchived"'), "应有隐藏归档复选框");
+  assert.ok(html.includes('id="fAutoScanStart"'), "应有启动前扫描复选框");
+  assert.ok(html.includes(".scorebar"), "样式中应定义健康分进度条");
+  assert.ok(html.includes("visibilityCell") && html.includes("sizeCell") && html.includes("filesCell"), "脚本应含新单元格渲染函数");
+  assert.ok(html.includes("exportCsv") && html.includes("fmtSize"), "脚本应含导出与大小格式化函数");
+  // fmtSize 已提升为模块级导出函数，可直接单测
+  assert.equal(fmtSize(0), "—");
+  assert.equal(fmtSize(512), "512 KB");
+  assert.equal(fmtSize(1024), "1.0 MB");
+  assert.equal(fmtSize(2048), "2.0 MB");
+  assert.equal(fmtSize(1048576), "1.00 GB");
 });

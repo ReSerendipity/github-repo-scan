@@ -1,5 +1,14 @@
 // scan-core.mjs —— 扫描 + 渲染共享核心（scan.mjs 命令行 与 server.mjs 本地服务共用）
 // v2：并行扫描 / 仓库分页 / CI 趋势 / API 配额 / 许可证链接增量复用 / schema 2
+
+// 仓库大小格式化（GitHub API 返回的单位为 KB）
+export function fmtSize(kb) {
+  if (!kb) return "—";
+  if (kb < 1024) return kb + " KB";
+  const mb = kb / 1024;
+  if (mb < 1024) return mb.toFixed(1) + " MB";
+  return (mb / 1024).toFixed(2) + " GB";
+}
 import { execFileSync, execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { writeFileSync, readFileSync, readdirSync, existsSync } from "node:fs";
@@ -485,6 +494,7 @@ const QUERY_PAGE = /* GraphQL */ `
           pushedAt
           stargazerCount
           forkCount
+          size
           primaryLanguage { name }
           licenseInfo { spdxId name }
           defaultBranchRef { name }
@@ -566,6 +576,24 @@ export async function collectData(ownerArg, opts = {}) {
       } catch { /* 无权限或无数据时留空 */ }
     }
 
+    // 最近一次提交的变更文件（用于「最近变更」列；每个仓库 +1 次 REST 调用）
+    let lastCommit = null;
+    try {
+      const c = JSON.parse(await ghAsync(["api", "repos/" + owner + "/" + r.name + "/commits?per_page=1"]));
+      const cm = Array.isArray(c) ? c[0] : null;
+      if (cm && cm.sha) {
+        const files = (cm.files || []).slice(0, 12).map((f) => ({ name: f.filename, status: f.status, add: f.additions || 0, del: f.deletions || 0 }));
+        lastCommit = {
+          sha: cm.sha,
+          message: (cm.commit?.message || "").split("\n")[0].slice(0, 120),
+          at: cm.commit?.author?.date || cm.commit?.committer?.date || null,
+          url: cm.html_url || null,
+          files,
+          fileCount: (cm.files || []).length,
+        };
+      }
+    } catch { /* 无提交或接口不可用时留空 */ }
+
     const state = ciStateOf(run);
     const lic = r.licenseInfo;
     return {
@@ -579,6 +607,7 @@ export async function collectData(ownerArg, opts = {}) {
       pushedAt: r.pushedAt,
       stars: r.stargazerCount,
       forks: r.forkCount,
+      size: r.size ?? 0,
       openIssues: r.issues?.totalCount ?? 0,
       openPRs: r.pullRequests?.totalCount ?? 0,
       branches: r.refs?.totalCount ?? 0,
@@ -601,6 +630,7 @@ export async function collectData(ownerArg, opts = {}) {
       language: r.primaryLanguage?.name ?? null,
       langColor: LANG_COLORS[r.primaryLanguage?.name ?? ""] ?? "#8b949e",
       traffic,
+      lastCommit,
     };
   });
 
@@ -620,6 +650,7 @@ export async function collectData(ownerArg, opts = {}) {
     releases: rows.reduce((a, r) => a + r.releases, 0),
     ciDone: rows.filter((x) => ["ok", "fail"].includes(x.ci.cls)).length,
     ciOk: rows.filter((x) => x.ci.cls === "ok").length,
+    sizeTotal: rows.reduce((a, r) => a + (r.size || 0), 0),
   };
 
   const data = { schema: 3, owner: login, avatarUrl, scannedAt: new Date().toISOString(), truncated, rate, totals, rows };
@@ -820,6 +851,43 @@ export function renderDashboard(data) {
   footer { margin-top: 18px; font-size: 12px; color: var(--muted); line-height: 1.8; }
   footer code { font-family: Consolas, "Cascadia Mono", monospace; background: var(--panel); border: 1px solid var(--border); border-radius: 4px; padding: 1px 6px; }
   #footExtra strong { color: var(--text2); font-weight: 600; }
+
+  .scorebar { height: 4px; border-radius: 3px; background: var(--rowborder); margin-top: 6px; overflow: hidden; width: 76px; }
+  .scorebar > i { display: block; height: 100%; border-radius: 3px; }
+  .filetoggle { background: var(--panel); border: 1px solid var(--border); color: var(--text2); border-radius: 999px; padding: 2px 10px; font-size: 12px; cursor: pointer; font-family: inherit; }
+  .filetoggle:hover { border-color: var(--accent); color: var(--accent); }
+  .filelist { margin-top: 7px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); max-height: 168px; overflow-y: auto; padding: 6px 8px; }
+  .filelist .fi { display: flex; align-items: center; gap: 7px; font-size: 12px; padding: 2px 0; font-family: Consolas, "Cascadia Mono", monospace; }
+  .filelist .st { width: 18px; text-align: center; font-weight: 700; flex: none; }
+  .filelist .st.add { color: var(--ok); }
+  .filelist .st.mod { color: var(--warn); }
+  .filelist .st.del { color: var(--fail); }
+  .filelist .fn { color: var(--text2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .filelist .num { margin-left: auto; color: var(--muted); flex: none; font-size: 11px; }
+  .sz { white-space: nowrap; }
+
+  .alert-box { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; }
+  .alert-box:empty { display: none; }
+  .alert-chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--panel); color: var(--text2); font-size: 13px; cursor: pointer; font-family: inherit; }
+  .alert-chip:hover { border-color: var(--accent); color: var(--accent); }
+  .alert-chip .n { font-weight: 700; color: var(--text1); }
+  .alert-chip.fail { border-color: var(--fail); }
+  .alert-chip.fail .n { color: var(--fail); }
+  .alert-chip.warn { border-color: var(--warn); }
+  .alert-chip.warn .n { color: var(--warn); }
+  .alert-chip.ok { border-color: var(--ok); }
+  .alert-chip.ok .n { color: var(--ok); }
+  .alert-box .lbl { color: var(--muted); font-size: 13px; align-self: center; margin-right: 2px; }
+
+  .lang-box { display: flex; flex-wrap: wrap; gap: 10px 18px; margin: 0 0 14px; padding: 12px 16px; border: 1px solid var(--border); border-radius: 10px; background: var(--panel); }
+  .lang-box:empty { display: none; }
+  .lang-box .lbl { color: var(--muted); font-size: 13px; align-self: center; }
+  .lang-row { display: flex; flex-direction: column; gap: 4px; min-width: 150px; }
+  .lang-row .top { display: flex; justify-content: space-between; font-size: 13px; }
+  .lang-row .nm { color: var(--text1); font-weight: 600; }
+  .lang-row .ct { color: var(--text2); }
+  .lang-row .bar { height: 6px; border-radius: 4px; background: var(--rowborder); overflow: hidden; }
+  .lang-row .bar > i { display: block; height: 100%; border-radius: 4px; }
 </style>
 </head>
 <body>
@@ -833,12 +901,16 @@ export function renderDashboard(data) {
     <div class="controls">
       <button id="scanBtn" class="btn primary" type="button" title="重新扫描并刷新本页数据（远程 + 本地对照；需本地服务已启动：node server.mjs）"><span class="ico"></span><span class="lbl">重新扫描</span></button>
       <button id="scanLocalBtn" class="btn" type="button" title="只扫描本机 Git 仓库并对照/列出（不访问 GitHub，需本地服务）"><span class="ico2"></span><span class="lbl">仅扫本地</span></button>
+      <button id="csvBtn" class="btn" type="button" title="导出当前筛选/排序结果为 CSV（Excel 可直接打开，带 UTF-8 BOM）">导出 CSV</button>
+      <button id="cloneBtn" class="btn" type="button" title="复制当前可见仓库的 git clone 命令到剪贴板">复制 clone</button>
       <button id="themeBtn" class="btn icon" type="button" title="切换明暗主题" aria-label="切换明暗主题"></button>
     </div>
   </header>
   <div class="hint" id="scanHint"></div>
 
   <div class="metrics" id="metrics"></div>
+  <div class="alert-box" id="alertBox"></div>
+  <div class="lang-box" id="langBox"></div>
 
   <div class="toolbar">
     <input id="q" type="search" placeholder="搜索仓库名 / 描述…">
@@ -849,8 +921,11 @@ export function renderDashboard(data) {
       <option value="fail">CI 失败</option>
       <option value="running">CI 运行中</option>
       <option value="none">无 CI 记录</option>
+      <option value="pub">仅公开仓库</option>
+      <option value="priv">仅私有仓库</option>
       <option value="hasIssue">有开放 Issue</option>
       <option value="noLic">未声明许可证</option>
+      <option value="lowScore">仅低健康分(&lt;50)</option>
       <option value="noLocal">本地缺失</option>
       <option value="dirtyLocal">本地有未提交改动</option>
       <option value="aheadLocal">本地与远程不一致</option>
@@ -861,6 +936,8 @@ export function renderDashboard(data) {
     </span>
     <button id="cfgBtn" class="btn" type="button" title="设置本地扫描根目录（分号分隔），保存到 scan-config.json，下次扫描生效">本地目录…</button>
     <label class="chk"><input type="checkbox" id="fNoFork">隐藏 fork</label>
+    <label class="chk"><input type="checkbox" id="fNoArchived">隐藏归档</label>
+    <label class="chk"><input type="checkbox" id="fAutoScanStart" title="开启后，启动面板会先自动扫描（约 20–40 秒）再打开页面；可在 scan-config.json 设 stale/always/off">启动前扫描</label>
     <span class="spacer"></span>
     <span class="views-box">
       <select id="fView" title="自定义视图 = 当前搜索/筛选/排序的命名快照"><option value="">视图:手动状态</option></select>
@@ -884,6 +961,7 @@ export function renderDashboard(data) {
       <thead>
         <tr>
           <th class="sortable" data-key="name" title="点击按仓库名排序">仓库<span class="arr" data-arr="name"></span></th>
+          <th class="sortable" data-key="visibility" title="点击按可见性排序（私有优先）">可见性<span class="arr" data-arr="visibility"></span></th>
           <th class="sortable" data-key="local" title="点击按本地状态排序（降序 = 本地异常优先）">本地<span class="arr" data-arr="local"></span></th>
           <th class="sortable" data-key="score" title="健康分 = CI 40 + 新鲜度 30 + Issue 卫生 15 + 发布节奏 15(归档仓打七折)">健康<span class="arr" data-arr="score"></span></th>
           <th class="sortable" data-key="ci" title="点击按 CI 状态排序（降序 = 问题优先）">CI/CD 状态<span class="arr" data-arr="ci"></span></th>
@@ -894,11 +972,14 @@ export function renderDashboard(data) {
           <th class="sortable" data-key="stars" title="点击按 Star 数排序">Star<span class="arr" data-arr="stars"></span></th>
           <th class="sortable" data-key="forks" title="点击按 Fork 数排序">Fork<span class="arr" data-arr="forks"></span></th>
           <th class="sortable" data-key="language" title="点击按语言排序">语言<span class="arr" data-arr="language"></span></th>
+          <th class="sortable" data-key="size" title="点击按仓库大小排序（GitHub 返回的磁盘占用，单位 KB）">大小<span class="arr" data-arr="size"></span></th>
           <th class="sortable" data-key="traffic" title="点击按近 14 天浏览量排序(设 SCAN_WITH_TRAFFIC=1 开启采集)">流量<span class="arr" data-arr="traffic"></span></th>
+          <th class="sortable" data-key="files" title="点击按最近一次提交变更文件数排序（点「N 文件」展开详情）">最近变更<span class="arr" data-arr="files"></span></th>
           <th class="sortable" data-key="pushedAt" title="点击按最近推送排序">最近推送<span class="arr" data-arr="pushedAt"></span></th>
+          <th class="sortable" data-key="createdAt" title="点击按创建时间排序">创建时间<span class="arr" data-arr="createdAt"></span></th>
         </tr>
       </thead>
-      <tbody id="tbody"><tr><td class="empty" colspan="13">正在载入…</td></tr></tbody>
+      <tbody id="tbody"><tr><td class="empty" colspan="17">正在载入…</td></tr></tbody>
     </table>
   </div>
 
@@ -909,7 +990,7 @@ export function renderDashboard(data) {
     数据为扫描时快照：页面内点「重新扫描」可原地更新（需启动本地服务 <code>node server.mjs</code>），或命令行 <code>node scan.mjs</code>（<code>--render-only</code> 仅重渲染）·
     排序：点击表头，再点一次切换升降序（选择会记住）· 健康分：CI 40 + 新鲜度 30 + Issue 卫生 15 + 发布节奏 15 · 视图：「＋存视图」保存当前筛选与排序 · 主题：右上角切换（默认浅色）·
     CI 取最近一次 Actions 运行（任意分支/标签）· Issue 数不含 PR（PR 单列）· 分支数为全部本地分支（不含 tag）·
-    表格内每个单元格都链接到对应的 GitHub 页面 · 本地对照列：本机有对应 Git 仓库时显示分支与工作区状态（干净 / 未提交 n / ↑领先 ↓落后，基于本地缓存的远程 refs，不自动 fetch），扫描范围用「本地目录…」或 <code>scan-config.json</code> 调整 · 「仅本地仓库」模式在下方列出全部本机仓库（含远程账号名下没有的「本地独有」仓库）。
+    表格内每个单元格都链接到对应的 GitHub 页面 · 本地对照列：本机有对应 Git 仓库时显示分支与工作区状态（干净 / 未提交 n / ↑领先 ↓落后，基于本地缓存的远程 refs，不自动 fetch），扫描范围用「本地目录…」或 <code>scan-config.json</code> 调整 · 「仅本地仓库」模式在下方列出全部本机仓库（含远程账号名下没有的「本地独有」仓库）· <strong>可见性</strong>列可点表头按公开/私有排序，筛选下拉含「仅公开 / 仅私有」· <strong>大小</strong>列为 GitHub 磁盘占用（KB/MB/GB）· <strong>最近变更</strong>列点「N 文件」展开最近一次提交的文件清单（A 增 / M 改 / D 删，带 +− 行数）· 工具栏「隐藏归档」「启动前扫描」可记忆式开关 · 右上角「导出 CSV」导出当前视图（UTF-8，Excel 可直接打开）· 「仅低健康分(&lt;50)」可快速定位问题仓库。
   </footer>
 </div>
 
@@ -929,7 +1010,7 @@ window.__SCAN_DATA__ = ${jsonStr};
   var THEME_KEY = 'grs-theme';
   var AUTO_KEY = 'grs-auto';
   var SORT_KEY = 'grs-sort';
-  var state = { data: null, sortKey: 'pushedAt', sortDir: 'desc', scanning: false, q: '', fLang: '', fStatus: '', noFork: false, mode: 'both' };
+  var state = { data: null, sortKey: 'pushedAt', sortDir: 'desc', scanning: false, q: '', fLang: '', fStatus: '', noFork: false, noArchived: false, mode: 'both', expanded: {} };
   var VIEWS_KEY = 'ghscan.views.v1';
   var MODE_KEY = 'grs-mode';
   var viewState = { views: {}, current: '' };
@@ -998,6 +1079,7 @@ window.__SCAN_DATA__ = ${jsonStr};
   /* ---------- 排序 ---------- */
   var SORT_VAL = {
     name: function (r) { return r.name; },
+    visibility: function (r) { return r.visibility === 'PRIVATE' ? 1 : 0; },
     ci: function (r) { return { fail: 3, running: 2, ok: 1, none: 0 }[r.ci.cls] || 0; },
     license: function (r) { return r.license ? r.license.toLowerCase() : null; },
     release: function (r) { return r.latestRelease && r.latestRelease.publishedAt ? r.latestRelease.publishedAt : null; },
@@ -1009,6 +1091,9 @@ window.__SCAN_DATA__ = ${jsonStr};
     pushedAt: function (r) { return r.pushedAt; },
     score: function (r) { return scoreOf(r); },
     traffic: function (r) { return r.traffic ? r.traffic.views : null; },
+    size: function (r) { return r.size || 0; },
+    files: function (r) { return r.lastCommit && r.lastCommit.files ? r.lastCommit.fileCount : null; },
+    createdAt: function (r) { return r.createdAt ? new Date(r.createdAt).getTime() : null; },
     local: function (r) {
       if (!state.data || !state.data.localScan) return null;
       var l = r.local;
@@ -1036,7 +1121,11 @@ window.__SCAN_DATA__ = ${jsonStr};
   /* ---------- 筛选 ---------- */
   function matchFilters(r) {
     if (state.noFork && r.isFork) return false;
+    if (state.noArchived && r.isArchived) return false;
     if (state.fStatus === 'ok' && r.ci.cls !== 'ok') return false;
+    if (state.fStatus === 'pub' && r.visibility !== 'PUBLIC') return false;
+    if (state.fStatus === 'priv' && r.visibility !== 'PRIVATE') return false;
+    if (state.fStatus === 'lowScore' && scoreOf(r) >= 50) return false;
     if (state.fStatus === 'fail' && r.ci.cls !== 'fail') return false;
     if (state.fStatus === 'running' && r.ci.cls !== 'running') return false;
     if (state.fStatus === 'none' && r.ci.cls !== 'none') return false;
@@ -1128,8 +1217,37 @@ window.__SCAN_DATA__ = ${jsonStr};
 
   function scoreCell(r) {
     var s = scoreOf(r), g = gradeOf(s);
+    var col = g.cls === 'ok' ? 'var(--ok)' : g.cls === 'info' ? 'var(--accent)' : g.cls === 'warn' ? 'var(--warn)' : 'var(--fail)';
     var tip = 'CI ' + (r.ci ? r.ci.state : '?') + ' · 最近推送 ' + relTime(r.pushedAt) + ' · 开放 Issue ' + (r.openIssues || 0) + ' · 健康分 = CI 40 + 新鲜度 30 + Issue 卫生 15 + 发布节奏 15' + (r.isArchived ? '(归档仓七折)' : '');
-    return '<span class="badge ' + g.cls + '" title="' + esc(tip) + '"><span class="dot"></span>' + s + ' · ' + g.g + '</span>';
+    return '<span class="badge ' + g.cls + '" title="' + esc(tip) + '"><span class="dot"></span>' + s + ' · ' + g.g + '</span>' +
+      '<div class="scorebar" title="' + s + ' 分"><i style="width:' + s + '%;background:' + col + '"></i></div>';
+  }
+  function visibilityCell(r) {
+    if (!r.visibility) return '<span class="muted">—</span>';
+    var priv = r.visibility === 'PRIVATE';
+    return '<span class="badge ' + (priv ? 'warn' : 'local-ok') + '"><span class="dot"></span>' + (priv ? '私有' : '公开') + '</span>';
+  }
+  function sizeCell(r) {
+    return '<span class="sz" title="' + (r.size || 0) + ' KB">' + fmtSize(r.size) + '</span>';
+  }
+  function filesCell(r) {
+    var lc = r.lastCommit;
+    if (!lc || !lc.fileCount) return '<span class="muted">—</span>';
+    var open = !!state.expanded[r.name];
+    var head = '<button class="filetoggle" type="button" data-name="' + esc(r.name) + '" title="' + esc((lc.message || '') + (lc.at ? ' · ' + fullTime(lc.at) : '')) + '">最近 ' + lc.fileCount + ' 文件</button>';
+    if (!open) return head;
+    var list = '<div class="filelist">';
+    for (var i = 0; i < lc.files.length; i++) {
+      var f = lc.files[i];
+      var stCls = f.status === 'added' ? 'add' : (f.status === 'removed' ? 'del' : 'mod');
+      var stTxt = f.status === 'added' ? 'A' : (f.status === 'removed' ? 'D' : 'M');
+      var num = (f.add || 0) + (f.del || 0) ? ('+' + (f.add || 0) + ' −' + (f.del || 0)) : '';
+      list += '<div class="fi"><span class="st ' + stCls + '">' + stTxt + '</span>' +
+        (lc.url ? '<a class="fn" href="' + esc(lc.url) + '" target="_blank" rel="noopener" title="' + esc(f.name) + '">' + esc(f.name) + '</a>' : '<span class="fn" title="' + esc(f.name) + '">' + esc(f.name) + '</span>') +
+        (num ? '<span class="num">' + num + '</span>' : '') + '</div>';
+    }
+    list += '</div>';
+    return head + list;
   }
   function trafficCell(r) {
     var t = r.traffic;
@@ -1214,6 +1332,7 @@ window.__SCAN_DATA__ = ${jsonStr};
     var fork = '<a href="' + esc(r.url) + '/forks" target="_blank" rel="noopener" title="打开 Forks 页">' + SVG_FORK + ' ' + r.forks + '</a>';
     return '<tr>' +
       '<td class="repo"><a class="repo-name" href="' + esc(r.url) + '" target="_blank" rel="noopener">' + esc(r.name) + '</a>' + tags + '<div class="desc" title="' + esc(r.description) + '">' + esc(r.description || '无描述') + '</div></td>' +
+      '<td>' + visibilityCell(r) + '</td>' +
       '<td>' + localCell(r) + '</td>' +
       '<td>' + scoreCell(r) + '</td>' +
       '<td>' + ciCell(r) + '</td>' +
@@ -1224,8 +1343,11 @@ window.__SCAN_DATA__ = ${jsonStr};
       '<td class="num">' + star + '</td>' +
       '<td class="num">' + fork + '</td>' +
       '<td><span class="lang"><span class="ldot" style="background:' + esc(r.langColor) + '"></span>' + esc(r.language || '—') + '</span></td>' +
+      '<td class="num">' + sizeCell(r) + '</td>' +
       '<td class="num">' + trafficCell(r) + '</td>' +
+      '<td>' + filesCell(r) + '</td>' +
       '<td class="num"><span title="' + esc(fullTime(r.pushedAt)) + '">' + esc(relTime(r.pushedAt)) + '</span></td>' +
+      '<td class="num"><span title="' + esc(fullTime(r.createdAt)) + '">' + esc(relTime(r.createdAt)) + '</span></td>' +
       '</tr>';
   }
 
@@ -1234,7 +1356,7 @@ window.__SCAN_DATA__ = ${jsonStr};
     if (!d) {
       document.getElementById('scanMeta').textContent = '尚未扫描';
       document.getElementById('metrics').innerHTML = '';
-      document.getElementById('tbody').innerHTML = '<tr><td class="empty" colspan="13">暂无数据 —— 点击右上角「重新扫描」开始第一次扫描（需已启动 node server.mjs）</td></tr>';
+      document.getElementById('tbody').innerHTML = '<tr><td class="empty" colspan="17">暂无数据 —— 点击右上角「重新扫描」开始第一次扫描（需已启动 node server.mjs）</td></tr>';
       return;
     }
     var avatar = document.getElementById('avatar');
@@ -1245,8 +1367,14 @@ window.__SCAN_DATA__ = ${jsonStr};
     if (hasLocal) meta += ' · 本地对照 ' + d.localScan.count + ' 仓（' + fullTime(d.localScan.scannedAt) + '）';
     document.getElementById('scanMeta').textContent = meta;
     var t = d.totals;
+    var pub = d.rows.filter(function (r) { return r.visibility === 'PUBLIC'; }).length;
+    var priv = d.rows.filter(function (r) { return r.visibility === 'PRIVATE'; }).length;
+    var totalSize = fmtSize(t.sizeTotal || 0);
     document.getElementById('metrics').innerHTML =
       metric(t.repos, '仓库') +
+      metric(pub, '公开') +
+      metric(priv, '私有') +
+      metric(totalSize, '总大小') +
       metric(t.stars, 'Star 合计') +
       metric(t.forks, 'Fork 合计') +
       metric(t.openIssues + '<span class="vsub"> +' + t.openPRs + ' PR</span>', '开放 Issue') +
@@ -1254,6 +1382,39 @@ window.__SCAN_DATA__ = ${jsonStr};
       metric(t.ciOk + '<span class="vsub">/' + t.ciDone + '</span>', 'CI 通过 / 有记录') +
       metric(function () { var s = 0, n = d.rows.length || 1; for (var i = 0; i < d.rows.length; i++) s += scoreOf(d.rows[i]); return Math.round(s / n); }(), '平均健康分') +
       (hasLocal ? metric(t.localMatched + '<span class="vsub">/' + t.localTotal + '</span>', '本地对照') + metric(t.localMissing, '本地缺失') + metric(t.localOnly, '本地独有') + metric(t.localDirty, '本地未提交') : '');
+
+    // 聚合视图：CI 失败 / 低健康分 / 未声明许可证 / 无 CI / 本地缺失 —— 点击 chip 直接套用筛选
+    var ciFail = d.rows.filter(function (r) { return r.ci.cls === 'fail'; }).length;
+    var ciNone = d.rows.filter(function (r) { return r.ci.cls === 'none'; }).length;
+    var low = d.rows.filter(function (r) { return scoreOf(r) < 50; }).length;
+    var noLicC = d.rows.filter(function (r) { return !r.license; }).length;
+    var noLocalC = d.localScan ? d.rows.filter(function (r) { return !r.local; }).length : 0;
+    var chips = [];
+    function chip(cls, n, label, status) { if (n > 0) chips.push('<button class="alert-chip ' + cls + '" data-status="' + status + '" title="点击筛出这些仓库">⚠ <span class="n">' + n + '</span> ' + label + '</button>'); }
+    chip('fail', ciFail, '个仓库 CI 失败', 'fail');
+    chip('warn', low, '个低健康分(&lt;50)', 'lowScore');
+    chip('warn', noLicC, '个未声明许可证', 'noLic');
+    chip('', ciNone, '个无 CI 记录', 'none');
+    chip('', noLocalC, '个本地缺失', 'noLocal');
+    document.getElementById('alertBox').innerHTML = chips.length ? '<span class="lbl">聚合视图：</span>' + chips.join('') : '';
+
+    // 语言分布：按仓库数 Top 排序，条长按占比
+    var langCount = {};
+    var langColors = {};
+    for (var li2 = 0; li2 < d.rows.length; li2++) {
+      var lg = d.rows[li2].language || '未知';
+      langCount[lg] = (langCount[lg] || 0) + 1;
+      if (d.rows[li2].language) langColors[d.rows[li2].language] = d.rows[li2].langColor;
+    }
+    var langArr = Object.keys(langCount).map(function (k) { return { name: k, count: langCount[k] }; })
+      .sort(function (a, b) { return b.count - a.count; }).slice(0, 8);
+    var maxLang = langArr.length ? langArr[0].count : 1;
+    var langHtml = langArr.map(function (x) {
+      var col = langColors[x.name] || '#8b949e';
+      return '<div class="lang-row"><div class="top"><span class="nm">' + esc(x.name) + '</span><span class="ct">' + x.count + ' 仓</span></div>' +
+        '<div class="bar"><i style="width:' + Math.round(x.count / maxLang * 100) + '%;background:' + col + '"></i></div></div>';
+    }).join('');
+    document.getElementById('langBox').innerHTML = langHtml ? '<span class="lbl">语言分布（Top ' + langArr.length + '）：</span>' + langHtml : '';
 
     rebuildLangOptions();
 
@@ -1263,7 +1424,7 @@ window.__SCAN_DATA__ = ${jsonStr};
     var rows = visibleRows();
     document.getElementById('tbody').innerHTML = rows.length
       ? rows.map(rowHtml).join('')
-      : '<tr><td class="empty" colspan="13">没有匹配的仓库 —— 试试清空搜索或放宽筛选条件</td></tr>';
+      : '<tr><td class="empty" colspan="17">没有匹配的仓库 —— 试试清空搜索或放宽筛选条件</td></tr>';
     renderLocalBox();
 
     var extra = [];
@@ -1382,16 +1543,69 @@ window.__SCAN_DATA__ = ${jsonStr};
     else viewState.current = '';
   }
   function captureView() {
-    return { q: state.q, fLang: state.fLang, fStatus: state.fStatus, noFork: state.noFork, sortKey: state.sortKey, sortDir: state.sortDir };
+    return { q: state.q, fLang: state.fLang, fStatus: state.fStatus, noFork: state.noFork, noArchived: state.noArchived, sortKey: state.sortKey, sortDir: state.sortDir };
   }
   function applyView(v) {
     state.q = v.q || ''; document.getElementById('q').value = state.q;
     state.fLang = v.fLang || ''; document.getElementById('fLang').value = state.fLang;
     state.fStatus = v.fStatus || ''; document.getElementById('fStatus').value = state.fStatus;
     state.noFork = !!v.noFork; document.getElementById('fNoFork').checked = state.noFork;
+    state.noArchived = !!v.noArchived; document.getElementById('fNoArchived').checked = state.noArchived;
     state.sortKey = SORT_VAL[v.sortKey] ? v.sortKey : 'pushedAt';
     state.sortDir = v.sortDir === 'asc' ? 'asc' : 'desc';
     saveSort(); updateArr(); rebuildLangOptions(); render();
+  }
+
+  /* ---------- 导出 CSV（当前筛选/排序结果） ---------- */
+  function csvCell(v) {
+    var s = v == null ? '' : String(v);
+    if (/[",\n\r]/.test(s)) s = '"' + s.replace(/"/g, '""') + '"';
+    return s;
+  }
+  function exportCsv() {
+    var rows = visibleRows();
+    var head = ['仓库', '可见性', '本地状态', '健康分', '健康等级', 'CI', '许可证', 'Release', 'Issue', 'PR', '分支', 'Star', 'Fork', '语言', '大小(KB)', '流量浏览', '流量克隆', '最近变更文件数', '最近推送', 'URL'];
+    var lines = [head.map(csvCell).join(',')];
+    for (var i = 0; i < rows.length; i++) {
+      var r = rows[i];
+      var g = gradeOf(scoreOf(r));
+      var vis = r.visibility === 'PRIVATE' ? '私有' : (r.visibility === 'PUBLIC' ? '公开' : '');
+      var local = r.local
+        ? (r.local.dirty ? '未提交 ' + (r.local.dirtyCount || 0)
+          : (((r.local.ahead || 0) > 0 || (r.local.behind || 0) > 0) ? '本地与远程不一致' : '本地有'))
+        : '本地缺失';
+      lines.push([
+        r.name, vis, local, scoreOf(r), g.g, r.ci.state, r.license || '',
+        r.latestRelease ? r.latestRelease.tag : '', r.openIssues, r.openPRs, r.branches, r.stars, r.forks,
+        r.language || '', r.size || 0, r.traffic ? r.traffic.views : '', r.traffic ? r.traffic.clones : '',
+        r.lastCommit ? r.lastCommit.fileCount : '', relTime(r.pushedAt), r.url,
+      ].map(csvCell).join(','));
+    }
+    var csv = '﻿' + lines.join('\r\n');
+    var blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = (state.data && state.data.owner ? state.data.owner : 'github') + '-repos-' + new Date().toISOString().slice(0, 10) + '.csv';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setHint('已导出 ' + rows.length + ' 个仓库到 CSV（UTF-8，Excel 可直接打开）', 'okc');
+  }
+
+  /* ---------- 复制 clone 命令 ---------- */
+  function copyClones() {
+    var rows = visibleRows();
+    if (!rows.length) { setHint('当前没有可见仓库可复制', 'err'); return; }
+    var text = rows.map(function (r) { return 'git clone ' + r.url; }).join('\n');
+    function done() { setHint('已复制 ' + rows.length + ' 条 git clone 命令到剪贴板', 'okc'); }
+    function fb() {
+      try {
+        var ta = document.createElement('textarea');
+        ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta); ta.select();
+        document.execCommand('copy'); document.body.removeChild(ta); done();
+      } catch (e) { setHint('复制失败（浏览器限制）：可在控制台手动复制', 'err'); }
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, fb);
+    else fb();
   }
 
   /* ---------- 启动 ---------- */
@@ -1435,12 +1649,52 @@ window.__SCAN_DATA__ = ${jsonStr};
     fs.addEventListener('change', function () { state.fStatus = fs.value; render(); });
     var nf = document.getElementById('fNoFork');
     nf.addEventListener('change', function () { state.noFork = nf.checked; render(); });
+    var na = document.getElementById('fNoArchived');
+    na.addEventListener('change', function () { state.noArchived = na.checked; render(); });
+    var asEl = document.getElementById('fAutoScanStart');
+    asEl.addEventListener('change', function () {
+      fetch('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ autoScanOnStart: asEl.checked ? 'always' : 'off' }) })
+        .then(function (r) { return r.json().catch(function () { return { ok: false }; }); })
+        .then(function (j) {
+          if (!j.ok) setHint('保存启动扫描偏好失败（需本地服务 node server.mjs）', 'err');
+          else setHint(asEl.checked ? '已开启：下次启动面板将先自动扫描（约 20–40 秒）再打开页面' : '已关闭启动前自动扫描', 'okc');
+        });
+    });
+    document.getElementById('csvBtn').addEventListener('click', exportCsv);
+    document.getElementById('cloneBtn').addEventListener('click', copyClones);
+    document.getElementById('alertBox').addEventListener('click', function (e) {
+      var chip = e.target.closest ? e.target.closest('.alert-chip') : null;
+      if (chip && chip.getAttribute('data-status')) {
+        var st = chip.getAttribute('data-status');
+        state.fStatus = st;
+        document.getElementById('fStatus').value = st;
+        render();
+        setHint('已按聚合视图筛选：' + chip.textContent.replace(/^[⚠\s]+/, '').replace(/\s+/g, ' ').trim(), 'okc');
+      }
+    });
+    document.getElementById('tbody').addEventListener('click', function (e) {
+      var tgl = e.target.closest ? e.target.closest('.filetoggle') : null;
+      if (tgl && tgl.getAttribute('data-name')) {
+        var nm = tgl.getAttribute('data-name');
+        if (state.expanded[nm]) delete state.expanded[nm]; else state.expanded[nm] = true;
+        render();
+      }
+    });
     var au = document.getElementById('auto');
     au.addEventListener('change', function () { applyAuto(false); });
     var savedAuto = '0';
     try { savedAuto = localStorage.getItem(AUTO_KEY) || '0'; } catch (e) {}
     if (['10', '30', '60'].indexOf(savedAuto) >= 0) au.value = savedAuto;
     applyAuto(true);
+
+    // 启动前扫描开关：从服务端配置回填复选框（无本地服务时静默跳过，默认不勾选）
+    fetch('/api/config').then(function (r) { return r.json().catch(function () { return null; }); })
+      .then(function (j) {
+        if (j && j.ok && j.config) {
+          var m = String(j.config.autoScanOnStart || 'first').toLowerCase();
+          document.getElementById('fAutoScanStart').checked = (m === 'always' || m === 'stale');
+        }
+      }).catch(function () {});
 
     rebuildViewOptions();
     document.getElementById('fView').addEventListener('change', function () {

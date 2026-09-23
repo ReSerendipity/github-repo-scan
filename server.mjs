@@ -24,6 +24,32 @@ const portIdx = args.indexOf("--port");
 const basePort = portIdx >= 0 ? Number(args[portIdx + 1]) : 8787;
 let busy = false;
 
+/* 启动前自动扫描决策：
+ *   always → 每次启动都先扫描再开页面（约 20–40 秒）
+ *   stale  → 仅当无快照或快照比 autoScanMaxAgeHours（默认 6）小时更旧时扫描
+ *   first  → 仅当没有快照时扫描（保持旧版默认行为）
+ *   off    → 从不自动扫描（页面用现有快照，无快照则显示「开始第一次扫描」）
+ * CLI --scan-on-start=<mode> 优先级最高；否则读 scan-config.json 的 autoScanOnStart。
+ */
+function decideStartupScan() {
+  const idx = args.indexOf("--scan-on-start");
+  let mode = null;
+  if (idx >= 0 && args[idx + 1]) mode = String(args[idx + 1]).toLowerCase();
+  if (!mode) mode = String(readLocalConfig().autoScanOnStart || "first").toLowerCase();
+  if (mode === "off" || mode === "first") return mode === "first" && !existsSync(join(HERE, "scan-data.json"));
+  if (mode === "always") return true;
+  if (mode === "stale") {
+    const maxAgeH = Number(readLocalConfig().autoScanMaxAgeHours) || 6;
+    if (!existsSync(join(HERE, "scan-data.json"))) return true;
+    try {
+      const d = JSON.parse(readFileSync(join(HERE, "scan-data.json"), "utf8"));
+      const ageMs = Date.now() - new Date(d.scannedAt || 0).getTime();
+      return ageMs > maxAgeH * 3600 * 1000;
+    } catch { return true; }
+  }
+  return false;
+}
+
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
@@ -134,6 +160,13 @@ const server = http.createServer(async (req, res) => {
         if (body && Number.isFinite(body.localScanDepth)) {
           patchCfg.localScanDepth = Math.max(1, Math.min(10, Math.floor(body.localScanDepth)));
         }
+        if (body && typeof body.autoScanOnStart === "string") {
+          const m = body.autoScanOnStart.toLowerCase();
+          if (["always", "stale", "first", "off"].includes(m)) patchCfg.autoScanOnStart = m;
+        }
+        if (body && Number.isFinite(body.autoScanMaxAgeHours)) {
+          patchCfg.autoScanMaxAgeHours = Math.max(1, Math.min(720, Math.floor(body.autoScanMaxAgeHours)));
+        }
         const merged = { ...readLocalConfig() };
         for (const [k, v] of Object.entries(patchCfg)) {
           if (v === null) delete merged[k];
@@ -169,16 +202,20 @@ server.on("error", (e) => {
   }
 });
 
-// 首次运行且没有数据时，先自动扫一遍再开服务
-if (!existsSync(join(HERE, "scan-data.json"))) {
-  console.log("▸ 首次运行：先执行一次扫描（约 20–40 秒）…");
+// 启动前自动扫描：依据 decideStartupScan() 决定是否先扫一遍再开页面
+const _scanMode = (() => {
+  const idx = args.indexOf("--scan-on-start");
+  if (idx >= 0 && args[idx + 1]) return String(args[idx + 1]).toLowerCase();
+  return String(readLocalConfig().autoScanOnStart || "first").toLowerCase();
+})();
+if (decideStartupScan()) {
+  console.log("▸ 启动前自动扫描（模式 " + _scanMode + "，约 20–40 秒）…");
   try {
     const d = await collectData();
     writeOutputs(d);
-    console.log("✔ 首次扫描完成");
+    console.log("✔ 启动前扫描完成：" + d.totals.repos + " 个仓库 · dashboard.html / scan-data.json 已更新");
   } catch (e) {
-    console.error("✖ 首次扫描失败：" + (e?.message ?? e));
-    process.exit(1);
+    console.error("✖ 启动前扫描失败，改用现有快照：" + (e?.message ?? e));
   }
 }
 
